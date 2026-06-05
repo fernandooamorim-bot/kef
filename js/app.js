@@ -29,10 +29,26 @@ const app = {
       return;
     }
 
-    video?.play().catch(() => {});
+    const loadIntroVideo = () => {
+      if (!video || video.dataset.loaded === "true") return;
+      const source = document.createElement("source");
+      source.src = video.dataset.src;
+      source.type = "video/mp4";
+      video.append(source);
+      video.dataset.loaded = "true";
+      video.load();
+      video.play().catch(() => {});
+    };
+
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(loadIntroVideo, { timeout: 1400 });
+    } else {
+      window.setTimeout(loadIntroVideo, 700);
+    }
+
     skip?.addEventListener("click", hide);
     video?.addEventListener("ended", hide);
-    window.setTimeout(hide, 9000);
+    window.setTimeout(hide, 6500);
   },
 
   initNav() {
