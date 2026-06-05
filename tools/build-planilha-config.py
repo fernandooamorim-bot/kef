@@ -52,7 +52,7 @@ SHEETS = [
             ["domain", "https://krisnaefernando.com/", "Domínio final"],
             ["wedding_date", "2026-10-29T15:30:00-03:00", "Data/hora da contagem regressiva"],
             ["hero_image", "_BQH1940.jpg", "Foto de capa. Use o nome do arquivo da GALERIA, sem a extensão final gerada"],
-            ["intro_video", "assets/video/intro-casal.mp4", "Arquivo de vídeo da intro"],
+            ["intro_video", "assets/video/intro-casal-v2.mp4", "Arquivo de vídeo da intro"],
             ["ceremony_date_label", "29 de outubro de 2026", "Texto amigável da data"],
             ["ceremony_time", "15h30", "Horário da cerimônia"],
             ["venue_name", "Buffet La Maison", "Nome do local"],
