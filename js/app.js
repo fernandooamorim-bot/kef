@@ -39,7 +39,6 @@ const app = {
     const skip = document.getElementById("skipIntro");
     const status = document.getElementById("introStatus");
     const key = window.WEDDING_CONFIG.cache.introSeenKey;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const params = new URLSearchParams(window.location.search);
     const forceIntro = params.get(window.WEDDING_CONFIG.introReplayParam) === "1";
     const skipIntro = params.get(window.WEDDING_CONFIG.introReplayParam) === "0";
@@ -70,7 +69,7 @@ const app = {
       window.WeddingCache.remove(key);
     }
 
-    if (!intro || reduceMotion || skipIntro || (!alwaysShowIntro && !forceIntro && window.WeddingCache.read(key))) {
+    if (!intro || skipIntro || (!alwaysShowIntro && !forceIntro && window.WeddingCache.read(key))) {
       hide();
       return;
     }

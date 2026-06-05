@@ -368,16 +368,18 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html,
+  body,
+  main,
+  section,
+  .reveal,
+  .intro,
+  .intro__video,
+  .intro__loader,
+  .intro__loader i::before {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
-  }
-
-  .intro {
-    display: none;
   }
 }
 
