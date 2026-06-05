@@ -37,6 +37,12 @@ Edite `js/config.js` para trocar:
 - `gallery`: ordem das fotos.
 - `mapsUrl`: link de rota.
 
+Para testar a intro novamente no mesmo navegador, abra:
+
+```text
+https://fernandooamorim-bot.github.io/kef/?intro=1
+```
+
 O site funciona sem Apps Script, usando fallback local. Nesse modo, o RSVP fica salvo apenas no navegador para teste.
 
 ## Apps Script

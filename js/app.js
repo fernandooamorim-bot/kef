@@ -37,41 +37,60 @@ const app = {
     const intro = document.getElementById("intro");
     const video = document.getElementById("introVideo");
     const skip = document.getElementById("skipIntro");
+    const status = document.getElementById("introStatus");
     const key = window.WEDDING_CONFIG.cache.introSeenKey;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const params = new URLSearchParams(window.location.search);
+    const forceIntro = params.get(window.WEDDING_CONFIG.introReplayParam) === "1";
+    let started = false;
+    let hideTimer;
 
     const hide = () => {
       intro?.classList.add("is-hidden");
       document.body.classList.remove("intro-lock");
       window.WeddingCache.write(key, true, 60 * 24 * 14);
       if (video) video.pause();
+      if (hideTimer) window.clearTimeout(hideTimer);
     };
 
-    if (!intro || reduceMotion || window.WeddingCache.read(key)) {
+    if (forceIntro) {
+      window.WeddingCache.remove(key);
+    }
+
+    if (!intro || reduceMotion || (!forceIntro && window.WeddingCache.read(key))) {
       hide();
       return;
     }
 
-    const loadIntroVideo = () => {
-      if (!video || video.dataset.loaded === "true") return;
-      const source = document.createElement("source");
-      source.src = video.dataset.src || window.WEDDING_CONFIG.introVideo;
-      source.type = "video/mp4";
-      video.append(source);
-      video.dataset.loaded = "true";
-      video.load();
-      video.play().catch(() => {});
+    const markFallback = () => {
+      if (started) return;
+      if (status) status.textContent = "Toque em entrar para continuar";
+      skip?.classList.add("is-ready");
     };
 
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(loadIntroVideo, { timeout: 1400 });
-    } else {
-      window.setTimeout(loadIntroVideo, 700);
-    }
+    const startPlayback = async () => {
+      if (!video || started) return;
+      try {
+        await video.play();
+        started = true;
+        intro.classList.add("has-video");
+        if (status) status.textContent = "Krisna & Fernando";
+        hideTimer = window.setTimeout(hide, 10500);
+      } catch (error) {
+        markFallback();
+      }
+    };
+
+    video?.addEventListener("loadeddata", startPlayback, { once: true });
+    video?.addEventListener("canplay", startPlayback, { once: true });
+    video?.addEventListener("error", markFallback, { once: true });
+    video?.load();
+    window.setTimeout(startPlayback, 600);
+    window.setTimeout(markFallback, 5200);
 
     skip?.addEventListener("click", hide);
     video?.addEventListener("ended", hide);
-    window.setTimeout(hide, 6500);
+    window.setTimeout(hide, 15000);
   },
 
   initNav() {

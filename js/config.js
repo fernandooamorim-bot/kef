@@ -4,6 +4,7 @@ window.WEDDING_CONFIG = {
   weddingDate: "2026-10-29T15:30:00-03:00",
   heroImage: "_BQH1940.jpg",
   introVideo: "assets/video/intro-casal.mp4",
+  introReplayParam: "intro",
   appScriptUrl: "https://script.google.com/macros/s/AKfycbzYOTt7bXDOlIBGMTbZlycPShyCL1lJHB5BGJVPnEBWcvlB9kTvux8WDRJQ8kQ-SL-6cg/exec",
   cache: {
     publicConfigKey: "kf_public_config_v1",

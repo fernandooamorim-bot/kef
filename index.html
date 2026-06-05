@@ -16,17 +16,24 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="preload" as="image" href="assets/images/gallery/_BQH1940.jpg.jpg">
+    <link rel="preload" as="video" href="assets/video/intro-casal.mp4" type="video/mp4">
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/components.css">
   </head>
   <body>
     <div class="intro" id="intro" aria-label="Introdução em vídeo do casal">
-      <video class="intro__video" id="introVideo" playsinline muted preload="none" poster="assets/images/gallery/_BQH1940.jpg.jpg" data-src="assets/video/intro-casal.mp4">
+      <video class="intro__video" id="introVideo" playsinline muted preload="auto" poster="assets/images/gallery/_BQH1940.jpg.jpg" data-src="assets/video/intro-casal.mp4">
+        <source src="assets/video/intro-casal.mp4" type="video/mp4">
       </video>
+      <img src="assets/images/gallery/_BQH1940.jpg.jpg" alt="" class="intro__poster" aria-hidden="true">
       <div class="intro__overlay">
         <img src="assets/brand/monograma-small.png" alt="Monograma Krisna e Fernando" class="intro__monogram">
         <p>Krisna & Fernando</p>
+        <div class="intro__loader" id="introLoader" aria-live="polite">
+          <span id="introStatus">Preparando nossa história...</span>
+          <i></i>
+        </div>
       </div>
       <button class="intro__skip" id="skipIntro" type="button">Entrar no site</button>
     </div>
