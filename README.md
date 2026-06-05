@@ -65,13 +65,13 @@ O video original permanece fora da pasta do site, em:
 ../Design/OBQH1913.mp4
 ```
 
-Foi gerada uma versao otimizada com `avconvert`:
+Foi gerada uma versao otimizada com `avconvert` e publicada como `.mp4` para melhor compatibilidade com GitHub Pages e navegadores:
 
 ```text
-assets/video/intro-casal.m4v
+assets/video/intro-casal.mp4
 ```
 
-A versao otimizada e usada primeiro no HTML. Antes do deploy final, ainda pode valer gerar uma versao WebM adicional com `ffmpeg`, por exemplo:
+A versao otimizada e usada no HTML. Antes do deploy final, ainda pode valer gerar uma versao WebM adicional com `ffmpeg`, por exemplo:
 
 ```bash
 ffmpeg -i Design/OBQH1913.mp4 -vf "scale='min(1280,iw)':-2" -c:v libx264 -crf 26 -preset slow -c:a aac -b:a 96k assets/video/intro-casal.mp4
@@ -87,7 +87,6 @@ ffmpeg -i Design/OBQH1913.mp4 -vf "scale='min(1280,iw)':-2" -c:v libvpx-vp9 -crf
 
 ## Proximos ajustes recomendados
 
-- Comprimir o video intro antes do deploy final.
 - Definir conteudo final da lista de presentes.
 - Publicar o Apps Script e inserir a URL em `js/config.js`.
 - Revisar a ordem definitiva da galeria.

@@ -7,7 +7,30 @@ const app = {
     window.WeddingCountdown.start();
     window.WeddingGallery.init();
     window.WeddingRsvp.init();
-    window.WeddingApi.getPublicConfig();
+    window.WeddingApi.getPublicConfig().then((data) => this.applyRemoteConfig(data));
+  },
+
+  applyRemoteConfig(data) {
+    const remote = data?.config || {};
+    const heroImage = remote.hero_image || window.WEDDING_CONFIG.heroImage;
+    const introVideo = remote.intro_video || window.WEDDING_CONFIG.introVideo;
+    const resolvedHero = this.resolveGalleryImage(heroImage);
+    const hero = document.getElementById("heroImage");
+    const introVideoNode = document.getElementById("introVideo");
+
+    if (hero && resolvedHero) {
+      hero.src = resolvedHero;
+    }
+
+    if (introVideoNode && introVideo) {
+      introVideoNode.dataset.src = introVideo;
+    }
+  },
+
+  resolveGalleryImage(value) {
+    if (!value) return "";
+    if (value.startsWith("assets/") || value.startsWith("http")) return value;
+    return `assets/images/gallery/${value}.jpg`;
   },
 
   initIntro() {
@@ -32,7 +55,7 @@ const app = {
     const loadIntroVideo = () => {
       if (!video || video.dataset.loaded === "true") return;
       const source = document.createElement("source");
-      source.src = video.dataset.src;
+      source.src = video.dataset.src || window.WEDDING_CONFIG.introVideo;
       source.type = "video/mp4";
       video.append(source);
       video.dataset.loaded = "true";
