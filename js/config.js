@@ -2,7 +2,7 @@ window.WEDDING_CONFIG = {
   couple: "Krisna & Fernando",
   domain: "https://krisnaefernando.com/",
   weddingDate: "2026-10-29T15:30:00-03:00",
-  appScriptUrl: "",
+  appScriptUrl: "https://script.google.com/macros/s/AKfycbzYOTt7bXDOlIBGMTbZlycPShyCL1lJHB5BGJVPnEBWcvlB9kTvux8WDRJQ8kQ-SL-6cg/exec",
   cache: {
     publicConfigKey: "kf_public_config_v1",
     publicConfigTtlMinutes: 30,
