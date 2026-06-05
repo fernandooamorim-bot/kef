@@ -42,8 +42,8 @@ const app = {
   initLoader() {
     const loader = document.getElementById("siteLoader");
     const start = Date.now();
-    const minDuration = 720;
-    const maxDuration = 2600;
+    const minDuration = 1350;
+    const maxDuration = 3600;
     const hide = () => {
       if (!loader || loader.classList.contains("is-hidden")) return;
       const elapsed = Date.now() - start;
