@@ -8,6 +8,7 @@
   --color-gold: #b29a68;
   --color-lavender: #b8adc5;
   --shadow-soft: 0 22px 60px rgba(53, 44, 31, 0.16);
+  --font-hero: "Bodoni Moda", "Cormorant Garamond", Georgia, serif;
   --font-display: "Cormorant Garamond", Georgia, serif;
   --font-body: "Manrope", Arial, sans-serif;
   --header-height: 76px;
@@ -64,7 +65,9 @@ h3 {
 }
 
 h1 {
+  font-family: var(--font-hero);
   font-size: clamp(4.2rem, 11vw, 9rem);
+  font-weight: 400;
   margin-bottom: 1rem;
 }
 

@@ -26,11 +26,11 @@
 
 .site-loader__image {
   z-index: 0;
-  opacity: 0.56;
-  filter: saturate(0.72) contrast(1.04);
-  object-position: center 35%;
+  opacity: 0.72;
+  filter: saturate(1.05) contrast(1.03) brightness(1.02);
+  object-position: center 42%;
   transform: scale(1.04);
-  animation: loaderPhoto 2600ms ease-out both;
+  animation: loaderPhoto 3200ms ease-out both;
 }
 
 .site-loader__texture {
@@ -46,8 +46,8 @@
   inset: 0;
   z-index: 2;
   background:
-    radial-gradient(circle at 50% 38%, rgba(255, 250, 242, 0.22), transparent 32%),
-    linear-gradient(180deg, rgba(18, 17, 14, 0.2), rgba(18, 17, 14, 0.78));
+    radial-gradient(circle at 50% 38%, rgba(255, 250, 242, 0.26), transparent 34%),
+    linear-gradient(180deg, rgba(18, 17, 14, 0.1), rgba(18, 17, 14, 0.66));
 }
 
 .site-loader__content {
@@ -131,7 +131,7 @@
 
   100% {
     transform: scale(1.04);
-    opacity: 0.56;
+    opacity: 0.72;
   }
 }
 

@@ -4,9 +4,9 @@ const app = {
     this.initLoader();
     this.initHeroVideo();
     this.initNav();
-    this.initReveal();
     window.WeddingCountdown.start();
     window.WeddingGallery.init();
+    this.initReveal();
     window.WeddingRsvp.init();
     window.WeddingApi.getPublicConfig().then((data) => this.applyRemoteConfig(data));
   },
@@ -42,8 +42,8 @@ const app = {
   initLoader() {
     const loader = document.getElementById("siteLoader");
     const start = Date.now();
-    const minDuration = 1350;
-    const maxDuration = 3600;
+    const minDuration = 3000;
+    const maxDuration = 5200;
     const hide = () => {
       if (!loader || loader.classList.contains("is-hidden")) return;
       const elapsed = Date.now() - start;

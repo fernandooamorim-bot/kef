@@ -45,9 +45,13 @@
 }
 
 .brand img {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
+  padding: 0.28rem;
+  background: rgba(255, 250, 242, 0.86);
+  border: 1px solid rgba(78, 90, 66, 0.18);
+  box-shadow: 0 8px 24px rgba(53, 44, 31, 0.12);
 }
 
 .site-nav {
@@ -98,6 +102,7 @@
 
 .hero__image {
   object-fit: cover;
+  object-position: center 62%;
   opacity: 1;
   transition: opacity 800ms ease;
 }
@@ -105,6 +110,7 @@
 .hero__video {
   z-index: 1;
   object-fit: cover;
+  object-position: center 68%;
   opacity: 0;
   transition: opacity 900ms ease;
 }
@@ -120,8 +126,8 @@
 .hero__shade {
   z-index: 2;
   background:
-    linear-gradient(90deg, rgba(18, 17, 14, 0.74), rgba(18, 17, 14, 0.34) 54%, rgba(18, 17, 14, 0.18)),
-    linear-gradient(0deg, rgba(16, 15, 13, 0.64), transparent 54%);
+    linear-gradient(90deg, rgba(18, 17, 14, 0.56), rgba(18, 17, 14, 0.22) 54%, rgba(18, 17, 14, 0.08)),
+    linear-gradient(0deg, rgba(16, 15, 13, 0.5), transparent 56%);
 }
 
 .hero__content {
@@ -252,9 +258,12 @@
     inset: var(--header-height) 0 auto 0;
     display: grid;
     gap: 0;
-    padding: 1rem;
+    max-height: calc(100svh - var(--header-height));
+    padding: 0.8rem 1rem 1.1rem;
     background: rgba(248, 244, 236, 0.96);
     border-bottom: 1px solid rgba(78, 90, 66, 0.12);
+    box-shadow: 0 18px 40px rgba(53, 44, 31, 0.12);
+    overflow-y: auto;
     transform: translateY(-120%);
     transition: transform 220ms ease;
   }
@@ -275,13 +284,13 @@
 
   .hero__shade {
     background:
-      linear-gradient(0deg, rgba(18, 18, 15, 0.84), rgba(18, 18, 15, 0.2) 72%),
-      linear-gradient(90deg, rgba(18, 17, 14, 0.48), rgba(18, 17, 14, 0.14));
+      linear-gradient(0deg, rgba(18, 18, 15, 0.68), rgba(18, 18, 15, 0.14) 72%),
+      linear-gradient(90deg, rgba(18, 17, 14, 0.36), rgba(18, 17, 14, 0.08));
   }
 
   .hero__media img,
   .hero__video {
-    object-position: 46% center;
+    object-position: 50% 72%;
   }
 
   .hero__content {
@@ -314,6 +323,10 @@
 }
 
 @media (max-width: 560px) {
+  :root {
+    --header-height: 66px;
+  }
+
   .site-header {
     height: 66px;
   }
@@ -324,8 +337,8 @@
   }
 
   .brand img {
-    width: 38px;
-    height: 38px;
+    width: 42px;
+    height: 42px;
   }
 
   .hero {

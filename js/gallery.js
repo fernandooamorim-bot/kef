@@ -1,4 +1,10 @@
 window.WeddingGallery = {
+  resolveImage(name, folder) {
+    if (!name) return "";
+    if (name.startsWith("assets/") || name.startsWith("http")) return name;
+    return `assets/images/${folder}/${name}.jpg`;
+  },
+
   init() {
     const grid = document.getElementById("galleryGrid");
     const lightbox = document.getElementById("lightbox");
@@ -9,8 +15,8 @@ window.WeddingGallery = {
 
     const fragment = document.createDocumentFragment();
     window.WEDDING_CONFIG.gallery.forEach((name, index) => {
-      const full = `assets/images/gallery/${name}.jpg`;
-      const thumb = `assets/images/thumbs/${name}.jpg`;
+      const full = this.resolveImage(name, "gallery");
+      const thumb = this.resolveImage(name, "thumbs");
       const button = document.createElement("button");
       const image = document.createElement("img");
 
