@@ -5,6 +5,7 @@ window.WEDDING_CONFIG = {
   heroImage: "_BQH1940.jpg",
   introVideo: "assets/video/intro-casal.mp4",
   introReplayParam: "intro",
+  introMode: "always",
   appScriptUrl: "https://script.google.com/macros/s/AKfycbzYOTt7bXDOlIBGMTbZlycPShyCL1lJHB5BGJVPnEBWcvlB9kTvux8WDRJQ8kQ-SL-6cg/exec",
   cache: {
     publicConfigKey: "kf_public_config_v1",

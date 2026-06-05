@@ -42,22 +42,35 @@ const app = {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const params = new URLSearchParams(window.location.search);
     const forceIntro = params.get(window.WEDDING_CONFIG.introReplayParam) === "1";
+    const skipIntro = params.get(window.WEDDING_CONFIG.introReplayParam) === "0";
+    const alwaysShowIntro = window.WEDDING_CONFIG.introMode === "always";
     let started = false;
+    let settled = false;
+    let attempts = 0;
     let hideTimer;
+    let fallbackTimer;
+    let retryTimer;
+
+    const maxAttempts = 3;
 
     const hide = () => {
+      settled = true;
       intro?.classList.add("is-hidden");
       document.body.classList.remove("intro-lock");
-      window.WeddingCache.write(key, true, 60 * 24 * 14);
+      if (!alwaysShowIntro) {
+        window.WeddingCache.write(key, true, 60 * 24 * 14);
+      }
       if (video) video.pause();
       if (hideTimer) window.clearTimeout(hideTimer);
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
 
     if (forceIntro) {
       window.WeddingCache.remove(key);
     }
 
-    if (!intro || reduceMotion || (!forceIntro && window.WeddingCache.read(key))) {
+    if (!intro || reduceMotion || skipIntro || (!alwaysShowIntro && !forceIntro && window.WeddingCache.read(key))) {
       hide();
       return;
     }
@@ -68,25 +81,52 @@ const app = {
       skip?.classList.add("is-ready");
     };
 
-    const startPlayback = async () => {
-      if (!video || started) return;
+    const commitVideo = () => {
+      if (!intro || started) return;
+      started = true;
+      intro.classList.add("has-video");
+      if (status) status.textContent = "Krisna & Fernando";
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
+      hideTimer = window.setTimeout(hide, 10500);
+    };
+
+    const tryPlayback = async () => {
+      if (!video || started || settled) return;
+      attempts += 1;
       try {
         await video.play();
-        started = true;
-        intro.classList.add("has-video");
-        if (status) status.textContent = "Krisna & Fernando";
-        hideTimer = window.setTimeout(hide, 10500);
+        if (video.readyState >= 2) commitVideo();
       } catch (error) {
-        markFallback();
+        if (attempts < maxAttempts) {
+          retryTimer = window.setTimeout(tryPlayback, 700);
+        } else {
+          markFallback();
+        }
       }
     };
 
-    video?.addEventListener("loadeddata", startPlayback, { once: true });
-    video?.addEventListener("canplay", startPlayback, { once: true });
+    video?.addEventListener("loadeddata", tryPlayback, { once: true });
+    video?.addEventListener("canplay", tryPlayback, { once: true });
+    video?.addEventListener("playing", commitVideo, { once: true });
     video?.addEventListener("error", markFallback, { once: true });
-    video?.load();
-    window.setTimeout(startPlayback, 600);
-    window.setTimeout(markFallback, 5200);
+
+    try {
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.setAttribute("muted", "");
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+      video.setAttribute("autoplay", "");
+      video.preload = "auto";
+      video.load();
+    } catch (error) {
+      markFallback();
+    }
+
+    window.setTimeout(tryPlayback, 120);
+    window.setTimeout(tryPlayback, 900);
+    fallbackTimer = window.setTimeout(markFallback, 5500);
 
     skip?.addEventListener("click", hide);
     video?.addEventListener("ended", hide);
