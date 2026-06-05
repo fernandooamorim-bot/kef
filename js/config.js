@@ -3,9 +3,7 @@ window.WEDDING_CONFIG = {
   domain: "https://krisnaefernando.com/",
   weddingDate: "2026-10-29T15:30:00-03:00",
   heroImage: "_BQH1940.jpg",
-  introVideo: "assets/video/intro-casal-v2.mp4",
-  introReplayParam: "intro",
-  introMode: "always",
+  heroVideo: "assets/video/intro-casal-v2.mp4",
   appScriptUrl: "https://script.google.com/macros/s/AKfycbzYOTt7bXDOlIBGMTbZlycPShyCL1lJHB5BGJVPnEBWcvlB9kTvux8WDRJQ8kQ-SL-6cg/exec",
   cache: {
     publicConfigKey: "kf_public_config_v1",

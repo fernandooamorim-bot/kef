@@ -1,7 +1,8 @@
 const app = {
   init() {
-    document.body.classList.add("intro-lock");
-    this.initIntro();
+    document.body.classList.add("loading-lock");
+    this.initLoader();
+    this.initHeroVideo();
     this.initNav();
     this.initReveal();
     window.WeddingCountdown.start();
@@ -13,17 +14,22 @@ const app = {
   applyRemoteConfig(data) {
     const remote = data?.config || {};
     const heroImage = remote.hero_image || window.WEDDING_CONFIG.heroImage;
-    const introVideo = remote.intro_video || window.WEDDING_CONFIG.introVideo;
+    const heroVideo = remote.hero_video || window.WEDDING_CONFIG.heroVideo;
     const resolvedHero = this.resolveGalleryImage(heroImage);
     const hero = document.getElementById("heroImage");
-    const introVideoNode = document.getElementById("introVideo");
+    const heroVideoNode = document.getElementById("heroVideo");
 
     if (hero && resolvedHero) {
       hero.src = resolvedHero;
     }
 
-    if (introVideoNode && introVideo) {
-      introVideoNode.dataset.src = introVideo;
+    if (heroVideoNode && heroVideo) {
+      heroVideoNode.dataset.src = heroVideo;
+      const source = heroVideoNode.querySelector("source");
+      if (source && source.getAttribute("src") !== heroVideo) {
+        source.src = heroVideo;
+        heroVideoNode.load();
+      }
     }
   },
 
@@ -33,103 +39,76 @@ const app = {
     return `assets/images/gallery/${value}.jpg`;
   },
 
-  initIntro() {
-    const intro = document.getElementById("intro");
-    const video = document.getElementById("introVideo");
-    const skip = document.getElementById("skipIntro");
-    const status = document.getElementById("introStatus");
-    const key = window.WEDDING_CONFIG.cache.introSeenKey;
-    const params = new URLSearchParams(window.location.search);
-    const forceIntro = params.get(window.WEDDING_CONFIG.introReplayParam) === "1";
-    const skipIntro = params.get(window.WEDDING_CONFIG.introReplayParam) === "0";
-    const alwaysShowIntro = window.WEDDING_CONFIG.introMode === "always";
-    let started = false;
-    let settled = false;
-    let attempts = 0;
-    let hideTimer;
-    let fallbackTimer;
-    let retryTimer;
+  initLoader() {
+    const loader = document.getElementById("siteLoader");
+    const start = Date.now();
+    const minDuration = 720;
+    const maxDuration = 2600;
+    const hide = () => {
+      if (!loader || loader.classList.contains("is-hidden")) return;
+      const elapsed = Date.now() - start;
+      window.setTimeout(() => {
+        loader.classList.add("is-hidden");
+        document.body.classList.remove("loading-lock");
+        window.setTimeout(() => loader.remove(), 700);
+      }, Math.max(0, minDuration - elapsed));
+    };
 
+    if (document.readyState === "complete") {
+      hide();
+    } else {
+      window.addEventListener("load", hide, { once: true });
+    }
+    window.setTimeout(hide, maxDuration);
+  },
+
+  initHeroVideo() {
+    const video = document.getElementById("heroVideo");
+    const hero = document.getElementById("inicio");
+    if (!video || !hero) return;
+
+    let attempts = 0;
     const maxAttempts = 3;
 
-    const hide = () => {
-      settled = true;
-      intro?.classList.add("is-hidden");
-      document.body.classList.remove("intro-lock");
-      if (!alwaysShowIntro) {
-        window.WeddingCache.write(key, true, 60 * 24 * 14);
-      }
-      if (video) video.pause();
-      if (hideTimer) window.clearTimeout(hideTimer);
-      if (fallbackTimer) window.clearTimeout(fallbackTimer);
-      if (retryTimer) window.clearTimeout(retryTimer);
-    };
-
-    if (forceIntro) {
-      window.WeddingCache.remove(key);
-    }
-
-    if (!intro || skipIntro || (!alwaysShowIntro && !forceIntro && window.WeddingCache.read(key))) {
-      hide();
-      return;
-    }
-
-    const markFallback = () => {
-      if (started) return;
-      if (status) status.textContent = "Toque em entrar para continuar";
-      skip?.classList.add("is-ready");
-    };
-
-    const commitVideo = () => {
-      if (!intro || started) return;
-      started = true;
-      intro.classList.add("has-video");
-      if (status) status.textContent = "Krisna & Fernando";
-      if (fallbackTimer) window.clearTimeout(fallbackTimer);
-      hideTimer = window.setTimeout(hide, 10500);
+    const revealVideo = () => {
+      hero.classList.add("has-video");
     };
 
     const tryPlayback = async () => {
-      if (!video || started || settled) return;
+      if (video.dataset.failed === "true" || !video.paused) return;
       attempts += 1;
       try {
+        video.muted = true;
+        video.defaultMuted = true;
+        video.playsInline = true;
+        video.setAttribute("muted", "");
+        video.setAttribute("playsinline", "");
+        video.setAttribute("webkit-playsinline", "");
+        video.setAttribute("autoplay", "");
+        video.setAttribute("loop", "");
         await video.play();
-        if (video.readyState >= 2) commitVideo();
       } catch (error) {
         if (attempts < maxAttempts) {
-          retryTimer = window.setTimeout(tryPlayback, 700);
+          window.setTimeout(tryPlayback, 850);
         } else {
-          markFallback();
+          video.dataset.failed = "true";
         }
       }
     };
 
-    video?.addEventListener("loadeddata", tryPlayback, { once: true });
-    video?.addEventListener("canplay", tryPlayback, { once: true });
-    video?.addEventListener("playing", commitVideo, { once: true });
-    video?.addEventListener("error", markFallback, { once: true });
-
+    video.addEventListener("playing", revealVideo);
+    video.addEventListener("canplay", tryPlayback, { once: true });
+    video.addEventListener("error", () => {
+      video.dataset.failed = "true";
+      hero.classList.remove("has-video");
+    });
     try {
-      video.muted = true;
-      video.defaultMuted = true;
-      video.playsInline = true;
-      video.setAttribute("muted", "");
-      video.setAttribute("playsinline", "");
-      video.setAttribute("webkit-playsinline", "");
-      video.setAttribute("autoplay", "");
-      video.preload = "auto";
       video.load();
     } catch (error) {
-      markFallback();
+      video.dataset.failed = "true";
     }
-
     window.setTimeout(tryPlayback, 120);
-    window.setTimeout(tryPlayback, 900);
-    fallbackTimer = window.setTimeout(markFallback, 5500);
-
-    skip?.addEventListener("click", hide);
-    video?.addEventListener("ended", hide);
-    window.setTimeout(hide, 15000);
+    window.setTimeout(tryPlayback, 1000);
   },
 
   initNav() {

@@ -16,8 +16,8 @@
 
 .band {
   background:
-    linear-gradient(rgba(248, 244, 236, 0.91), rgba(248, 244, 236, 0.95)),
-    url("../assets/brand/estampa-fk.jpg") center / 820px auto;
+    linear-gradient(rgba(248, 244, 236, 0.82), rgba(248, 244, 236, 0.88)),
+    url("../assets/brand/estampa-fk.jpg") center / 760px auto;
 }
 
 .site-header {
@@ -75,14 +75,16 @@
 }
 
 .hero {
-  min-height: 100vh;
+  min-height: 100svh;
   display: grid;
-  place-items: end start;
-  padding: calc(var(--header-height) + 5rem) 0 5rem;
+  place-items: center start;
+  padding: calc(var(--header-height) + 4rem) 0 4rem;
   color: var(--color-paper);
 }
 
+.hero__media,
 .hero__image,
+.hero__video,
 .hero__shade {
   position: absolute;
   inset: 0;
@@ -90,20 +92,42 @@
   height: 100%;
 }
 
+.hero__media {
+  overflow: hidden;
+}
+
 .hero__image {
   object-fit: cover;
+  opacity: 1;
+  transition: opacity 800ms ease;
+}
+
+.hero__video {
+  z-index: 1;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+
+.hero.has-video .hero__video {
+  opacity: 1;
+}
+
+.hero.has-video .hero__image {
+  opacity: 0;
 }
 
 .hero__shade {
+  z-index: 2;
   background:
-    linear-gradient(90deg, rgba(26, 25, 20, 0.7), rgba(26, 25, 20, 0.3) 50%, rgba(26, 25, 20, 0.08)),
-    linear-gradient(0deg, rgba(20, 19, 16, 0.56), transparent 45%);
+    linear-gradient(90deg, rgba(18, 17, 14, 0.74), rgba(18, 17, 14, 0.34) 54%, rgba(18, 17, 14, 0.18)),
+    linear-gradient(0deg, rgba(16, 15, 13, 0.64), transparent 54%);
 }
 
 .hero__content {
   position: relative;
-  z-index: 1;
-  width: min(820px, calc(100% - 2rem));
+  z-index: 3;
+  width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
 }
 
@@ -112,8 +136,8 @@
 }
 
 .hero__monogram {
-  width: 108px;
-  margin-bottom: 1.2rem;
+  width: 96px;
+  margin-bottom: 1rem;
   filter: brightness(0) invert(1);
 }
 
@@ -177,7 +201,7 @@
 
 .rsvp {
   background:
-    linear-gradient(90deg, rgba(255, 250, 242, 0.96), rgba(255, 250, 242, 0.84)),
+    linear-gradient(90deg, rgba(255, 250, 242, 0.9), rgba(255, 250, 242, 0.66)),
     url("../assets/images/gallery/_BQH1929-Editar.jpg.jpg") center / cover;
 }
 
@@ -244,11 +268,32 @@
   }
 
   .hero {
-    min-height: 94vh;
+    min-height: 100svh;
+    padding: calc(var(--header-height) + 2.5rem) 0 2rem;
+    place-items: end start;
   }
 
   .hero__shade {
-    background: linear-gradient(0deg, rgba(18, 18, 15, 0.78), rgba(18, 18, 15, 0.18));
+    background:
+      linear-gradient(0deg, rgba(18, 18, 15, 0.84), rgba(18, 18, 15, 0.2) 72%),
+      linear-gradient(90deg, rgba(18, 17, 14, 0.48), rgba(18, 17, 14, 0.14));
+  }
+
+  .hero__media img,
+  .hero__video {
+    object-position: 46% center;
+  }
+
+  .hero__content {
+    width: min(100% - 1.5rem, 560px);
+  }
+
+  .hero__monogram {
+    width: 76px;
+  }
+
+  .hero__lead {
+    max-width: 22rem;
   }
 
   .story__grid,
@@ -265,5 +310,51 @@
 
   .section {
     padding: 5rem 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .site-header {
+    height: 66px;
+  }
+
+  .brand {
+    gap: 0.55rem;
+    font-size: 1.15rem;
+  }
+
+  .brand img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .hero {
+    padding: 5.5rem 0 1.5rem;
+  }
+
+  .hero__content {
+    width: calc(100% - 1.25rem);
+  }
+
+  .hero__content h1 {
+    max-width: 8ch;
+    margin-bottom: 0.75rem;
+  }
+
+  .hero__lead {
+    font-size: 0.98rem;
+    line-height: 1.55;
+  }
+
+  .hero__actions {
+    gap: 0.55rem;
+  }
+
+  .hero__actions .button {
+    flex: 1 1 100%;
+  }
+
+  .section__inner {
+    width: min(100% - 1.25rem, 1120px);
   }
 }

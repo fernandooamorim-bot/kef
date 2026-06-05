@@ -37,11 +37,7 @@ Edite `js/config.js` para trocar:
 - `gallery`: ordem das fotos.
 - `mapsUrl`: link de rota.
 
-Para testar a intro novamente no mesmo navegador, abra:
-
-```text
-https://fernandooamorim-bot.github.io/kef/?intro=1
-```
+O topo usa `heroVideo` como vídeo de fundo em loop, com fallback automático para `heroImage`.
 
 O site funciona sem Apps Script, usando fallback local. Nesse modo, o RSVP fica salvo apenas no navegador para teste.
 
@@ -71,7 +67,7 @@ O video original permanece fora da pasta do site, em:
 ../Design/OBQH1913.mp4
 ```
 
-Foi gerada uma versao otimizada com `avconvert` e publicada como `.mp4` para melhor compatibilidade com GitHub Pages e navegadores:
+Foi gerada uma versao otimizada e publicada como `.mp4` para melhor compatibilidade com GitHub Pages e navegadores:
 
 ```text
 assets/video/intro-casal-v2.mp4
