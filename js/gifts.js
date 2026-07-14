@@ -29,6 +29,7 @@ window.WeddingGifts = {
         title: gift.title || "",
         description: gift.description || "",
         image: gift.image || window.WEDDING_CONFIG.defaultGiftImage,
+        imagePosition: gift.image_position || gift.imagePosition || "center center",
         amount: Number(gift.amount || 0),
         order: Number(gift.sort_order || 999)
       }))
@@ -54,6 +55,7 @@ window.WeddingGifts = {
     this.gifts.forEach((gift) => {
       const article = document.createElement("article");
       article.className = "gift-card reveal";
+      article.style.setProperty("--gift-image-position", gift.imagePosition);
       article.innerHTML = `
         <img class="gift-card__image" src="${gift.image}" alt="" loading="lazy" decoding="async">
         <div class="gift-card__body">
@@ -97,6 +99,7 @@ window.WeddingGifts = {
     this.form.elements.giftId.value = gift.id;
     this.image.src = gift.image;
     this.image.alt = gift.title;
+    this.image.style.objectPosition = gift.imagePosition;
     this.title.textContent = gift.title;
     this.description.textContent = gift.description;
     this.amount.textContent = this.formatCurrency(gift.amount);

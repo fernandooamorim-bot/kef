@@ -8,9 +8,9 @@ const app = {
     window.WeddingGallery.init();
     this.initReveal();
     window.WeddingRsvp.init();
+    window.WeddingGifts.init(this.withLocalGifts(window.WEDDING_CONFIG.fallbackData));
     window.WeddingApi.getPublicConfig().then((data) => {
       this.applyRemoteConfig(data);
-      window.WeddingGifts.init(this.withLocalGifts(data));
       this.initReveal();
     });
   },
