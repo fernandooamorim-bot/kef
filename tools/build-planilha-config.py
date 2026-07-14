@@ -31,6 +31,7 @@ SHEETS = [
             ["CONVIDADOS", "Base oficial de convidados, grupos e acompanhantes permitidos."],
             ["RSVP", "Respostas enviadas pelo formulário do site."],
             ["PRESENTES", "Lista, PIX, cotas ou links de presentes."],
+            ["OPERADORES", "Acessos da equipe para validar QR Codes no dia do evento."],
             ["GALERIA", "Fotos que podem ser exibidas no site."],
             ["MENSAGENS", "Mensagens ou depoimentos opcionais."],
             [""],
@@ -47,7 +48,7 @@ SHEETS = [
     {
         "name": "CONFIG",
         "rows": [
-            ["key", "value", "description"],
+            ["chave", "valor", "descricao"],
             ["couple_name", "Krisna & Fernando", "Nome exibido no site"],
             ["domain", "https://krisnaefernando.com/", "Domínio final"],
             ["wedding_date", "2026-10-29T15:30:00-03:00", "Data/hora da contagem regressiva"],
@@ -72,12 +73,12 @@ SHEETS = [
     {
         "name": "PAGINAS",
         "rows": [
-            ["section", "title", "subtitle", "text", "button_label", "button_url", "enabled", "sort_order"],
+            ["secao", "titulo", "subtitulo", "texto", "rotulo_botao", "link_botao", "ativo", "ordem"],
             ["hero", "Krisna & Fernando", "29 de outubro de 2026", "Com amor, presença de Deus e a alegria de quem encontrou no outro o seu lugar.", "Confirmar presença", "#presenca", "TRUE", 1],
             ["historia", "Uma estampa feita de encontros, fé e detalhes nossos.", "Nossa história preferida", "Nossa estampa foi criada especialmente para o casamento, unindo elementos que fazem parte da nossa história.", "", "", "TRUE", 2],
             ["casamento", "Esperamos vocês para celebrar esse dia conosco.", "O casamento", "A cerimônia acontecerá às 15h30 do dia 29 de outubro de 2026, no Buffet La Maison, no Salão Terrasse. Após a cerimônia, os convidados serão recepcionados no mesmo local, no Salão Central.", "Abrir rota", "{{maps_url}}", "TRUE", 3],
             ["presenca", "Estamos preparando tudo com muito amor e presença de Deus.", "Confirme sua presença", "Para que possamos organizar da melhor forma possível esse dia tão especial, pedimos que nos confirme sua presença.", "Enviar confirmação", "", "TRUE", 4],
-            ["presentes", "Seu carinho já é parte da nossa casa.", "Presentes", "Em breve, esta seção receberá nossa lista de presentes, cotas e informações configuradas por aqui.", "", "", "TRUE", 5],
+            ["presentes", "Sua contribuição nos ajuda a começar essa nova etapa.", "Presentes", "Em breve, esta seção receberá nossa lista de presentes, cotas e informações configuradas por aqui.", "", "", "TRUE", 5],
             ["rodape", "Krisna & Fernando", "", "Obrigado por fazer parte da nossa história.", "", "", "TRUE", 6],
         ],
         "widths": [18, 46, 30, 92, 24, 46, 14, 14],
@@ -85,7 +86,7 @@ SHEETS = [
     {
         "name": "CONVIDADOS",
         "rows": [
-            ["guest_id", "name", "phone", "email", "group", "allowed_companions", "notes", "status"],
+            ["codigo_convidado", "nome", "telefone", "email", "grupo", "acompanhantes_permitidos", "observacoes", "status"],
             ["KF-001", "Convidado Exemplo", "", "", "Família", 1, "Substituir por convidados reais", "pendente"],
         ],
         "widths": [16, 34, 22, 34, 20, 22, 44, 18],
@@ -93,15 +94,15 @@ SHEETS = [
     {
         "name": "RSVP",
         "rows": [
-            ["timestamp", "guest_id", "guest_name", "attendance", "companions_confirmed", "companion_name", "phone", "email", "source", "userAgent"],
-            ["", "", "", "", "", "", "", "", "", ""],
+            ["data_hora", "codigo_convidado", "nome_convidado", "presenca", "acompanhantes_confirmados", "nome_acompanhante", "telefone", "link_whatsapp", "email", "token_checkin", "link_checkin", "qr_code", "status_checkin", "checkin_realizado_em", "checkin_por", "email_confirmacao_enviado_em", "erro_email_confirmacao", "origem", "navegador"],
+            ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
         ],
-        "widths": [24, 16, 34, 20, 24, 34, 22, 34, 16, 70],
+        "widths": [24, 16, 34, 20, 24, 34, 22, 42, 34, 34, 52, 52, 20, 26, 24, 30, 34, 16, 70],
     },
     {
         "name": "PRESENTES",
         "rows": [
-            ["gift_id", "title", "description", "type", "url", "pix_key", "amount", "enabled", "sort_order"],
+            ["codigo_presente", "titulo", "descricao", "tipo", "url", "chave_pix", "valor", "ativo", "ordem"],
             ["P-001", "Lista de presentes", "Link provisório para lista externa.", "link", "", "", "", "FALSE", 1],
             ["P-002", "Cota lua de mel", "Cota simbólica para a viagem dos noivos.", "cota", "", "", 250, "FALSE", 2],
             ["P-003", "PIX dos noivos", "Informação provisória para contribuição via PIX.", "pix", "", "", "", "FALSE", 3],
@@ -109,9 +110,17 @@ SHEETS = [
         "widths": [14, 30, 58, 18, 48, 34, 16, 14, 14],
     },
     {
+        "name": "OPERADORES",
+        "rows": [
+            ["usuario", "senha", "nome", "ativo", "observacoes"],
+            ["portaria", "trocar-esta-senha", "Equipe Portaria", "TRUE", "Troque a senha antes do evento"],
+        ],
+        "widths": [22, 28, 34, 14, 52],
+    },
+    {
         "name": "GALERIA",
         "rows": [
-            ["image_id", "file_name", "title", "alt_text", "featured", "enabled", "sort_order"],
+            ["codigo_imagem", "arquivo", "titulo", "texto_alternativo", "destaque", "ativo", "ordem"],
             ["G-001", "_BQH1996.jpg", "Ensaio Krisna e Fernando", "Krisna e Fernando em ensaio do casal", "TRUE", "TRUE", 1],
             ["G-002", "_BQH1929-Editar.jpg", "Ensaio do casal", "Foto do casal em ensaio pré-casamento", "TRUE", "TRUE", 2],
             ["G-003", "_BQH1901.jpg", "Ensaio do casal", "Foto de Krisna e Fernando", "FALSE", "TRUE", 3],
@@ -122,7 +131,7 @@ SHEETS = [
     {
         "name": "MENSAGENS",
         "rows": [
-            ["message_id", "name", "message", "enabled", "sort_order"],
+            ["codigo_mensagem", "nome", "mensagem", "ativo", "ordem"],
             ["M-001", "Krisna & Fernando", "Obrigado por fazer parte desse capítulo tão especial da nossa história.", "TRUE", 1],
         ],
         "widths": [16, 28, 86, 14, 14],

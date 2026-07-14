@@ -57,13 +57,30 @@ O formulario de presença usa a aba `CONVIDADOS` como fonte oficial. O convidado
 
 Na aba `CONVIDADOS`, use:
 
-- `guest_id`: identificador único, como `KF-001`.
-- `name`: nome exibido no autocomplete.
-- `group`: família, amigos, trabalho ou outro grupo interno.
-- `allowed_companions`: `0` para sem acompanhante, `1` ou mais para liberar acompanhante.
+- `codigo_convidado`: identificador único, como `KF-001`.
+- `nome`: nome exibido no autocomplete.
+- `grupo`: família, amigos, trabalho ou outro grupo interno.
+- `acompanhantes_permitidos`: `0` para sem acompanhante, `1` ou mais para liberar acompanhante.
 - `status`: deixe como `pendente` ou `ativo`; use `cancelado` ou `inativo` para ocultar da busca.
 
 Quando houver acompanhante permitido, o site pergunta se a pessoa levará acompanhante e só pede o nome se a resposta for sim.
+
+## Check-in por QR Code
+
+Quando o convidado confirma presença e informa um email, o Apps Script envia um email com QR Code de entrada. No dia do evento, a equipe acessa:
+
+```text
+https://krisnaefernando.com/checkin.html
+```
+
+O acesso usa a aba `OPERADORES`, com `usuario`, `senha`, `nome` e `ativo`. Troque a senha padrão antes do evento.
+
+A página de check-in permite:
+
+- leitura do QR Code pela câmera do celular;
+- bloqueio de QR Code já utilizado;
+- busca manual por nome para plano B;
+- visualização de acompanhante confirmado.
 
 ## Presentes
 

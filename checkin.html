@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Check-in | Krisna & Fernando</title>
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#4e5a42">
+    <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/checkin.css">
+  </head>
+  <body class="checkin-page">
+    <main class="checkin-shell">
+      <section class="checkin-login" id="loginPanel">
+        <img src="assets/brand/monograma-small.png" alt="Monograma Krisna e Fernando">
+        <p>Check-in do casamento</p>
+        <h1>Krisna & Fernando</h1>
+        <form id="loginForm">
+          <label>
+            <span>Usuário</span>
+            <input name="username" autocomplete="username" required>
+          </label>
+          <label>
+            <span>Senha</span>
+            <input name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button class="checkin-button" type="submit">Entrar</button>
+          <p class="checkin-status" id="loginStatus" role="status"></p>
+        </form>
+      </section>
+
+      <section class="checkin-app" id="checkinApp" hidden>
+        <header class="checkin-header">
+          <div>
+            <p>Operador</p>
+            <strong id="operatorName">Equipe</strong>
+          </div>
+          <button type="button" id="logoutButton">Sair</button>
+        </header>
+
+        <section class="checkin-result checkin-result--idle" id="resultPanel" aria-live="polite">
+          <span id="resultTitle">Pronto para validar</span>
+          <strong id="resultName">Aponte a câmera para o QR Code</strong>
+          <p id="resultMessage">A validação aparecerá aqui em tempo real.</p>
+          <dl id="resultDetails"></dl>
+        </section>
+
+        <section class="scanner-panel">
+          <video id="scannerVideo" playsinline muted></video>
+          <canvas id="scannerCanvas" hidden></canvas>
+          <div class="scanner-frame" aria-hidden="true"></div>
+        </section>
+
+        <div class="checkin-actions">
+          <button class="checkin-button" type="button" id="startScannerButton">Iniciar câmera</button>
+          <button class="checkin-button checkin-button--ghost" type="button" id="stopScannerButton" disabled>Parar</button>
+        </div>
+
+        <section class="manual-panel">
+          <h2>Busca manual</h2>
+          <form id="manualForm">
+            <label>
+              <span>Nome do convidado</span>
+              <input name="query" autocomplete="off" placeholder="Digite pelo menos duas letras">
+            </label>
+            <button class="checkin-button checkin-button--small" type="submit">Buscar</button>
+          </form>
+          <div class="manual-results" id="manualResults"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/cache.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/checkin.js"></script>
+  </body>
+</html>

@@ -87,6 +87,36 @@ window.WeddingApi = {
       .toLowerCase();
   },
 
+  async checkinRequest(action, data) {
+    const config = window.WEDDING_CONFIG;
+    if (!config.appScriptUrl) {
+      throw new Error("Configure o Apps Script para usar o check-in.");
+    }
+
+    const response = await fetch(config.appScriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, data })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || "Não foi possível concluir a operação.");
+    }
+    return payload.data;
+  },
+
+  async checkinLogin(credentials) {
+    return this.checkinRequest("checkin_login", credentials);
+  },
+
+  async validateCheckin(data) {
+    return this.checkinRequest("checkin_validate", data);
+  },
+
+  async searchCheckinGuests(data) {
+    return this.checkinRequest("checkin_search", data);
+  },
+
   async submitGiftIntent(data) {
     const config = window.WEDDING_CONFIG;
 

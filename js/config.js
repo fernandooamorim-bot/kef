@@ -44,11 +44,11 @@ window.WEDDING_CONFIG = {
     gifts: [
       { gift_id: "P-001", title: "Jantar romântico", description: "Uma noite especial para celebrarmos com calma depois do grande dia.", image: "assets/images/gifts/jantar-romantico.svg", amount: 250, enabled: "TRUE", sort_order: 1 },
       { gift_id: "P-002", title: "Cota lua de mel", description: "Um pedacinho da nossa primeira viagem como marido e esposa.", image: "assets/images/gifts/lua-de-mel.svg", amount: 300, enabled: "TRUE", sort_order: 2 },
-      { gift_id: "P-003", title: "Café da manhã dos noivos", description: "Para começarmos um dia da lua de mel com carinho e mesa bonita.", image: "assets/images/gifts/cafe-da-manha.svg", amount: 180, enabled: "TRUE", sort_order: 3 },
+      { gift_id: "P-003", title: "Café da manhã dos noivos", description: "Para começarmos um dia da lua de mel com calma e mesa bonita.", image: "assets/images/gifts/cafe-da-manha.svg", amount: 180, enabled: "TRUE", sort_order: 3 },
       { gift_id: "P-004", title: "Noite de hospedagem", description: "Uma diária simbólica para descansarmos depois de tanta emoção.", image: "assets/images/gifts/hospedagem.svg", amount: 450, enabled: "TRUE", sort_order: 4 },
       { gift_id: "P-005", title: "Passeio especial", description: "Uma experiência para guardarmos na memória da nossa viagem.", image: "assets/images/gifts/passeio.svg", amount: 220, enabled: "TRUE", sort_order: 5 },
       { gift_id: "P-006", title: "Brinde dos noivos", description: "Uma taça levantada para agradecer por esse novo capítulo.", image: "assets/images/gifts/brinde.svg", amount: 160, enabled: "TRUE", sort_order: 6 },
-      { gift_id: "P-007", title: "Primeiro mercado da casa", description: "Aquele empurrão carinhoso para abastecer o novo lar.", image: "assets/images/gifts/casa.svg", amount: 350, enabled: "TRUE", sort_order: 7 },
+      { gift_id: "P-007", title: "Primeiro mercado da casa", description: "Aquela força especial para abastecer o novo lar.", image: "assets/images/gifts/casa.svg", amount: 350, enabled: "TRUE", sort_order: 7 },
       { gift_id: "P-008", title: "Kit cozinha feliz", description: "Para receitas, cafés, conversas e pequenas alegrias do dia a dia.", image: "assets/images/gifts/cozinha.svg", amount: 280, enabled: "TRUE", sort_order: 8 },
       { gift_id: "P-009", title: "Mesa posta", description: "Um detalhe bonito para receber amigos e família com amor.", image: "assets/images/gifts/mesa-posta.svg", amount: 240, enabled: "TRUE", sort_order: 9 },
       { gift_id: "P-010", title: "Cantinho do café", description: "Para nossos cafés de manhã, de tarde e de depois do almoço.", image: "assets/images/gifts/cafe.svg", amount: 320, enabled: "TRUE", sort_order: 10 },
@@ -59,7 +59,7 @@ window.WEDDING_CONFIG = {
       { gift_id: "P-015", title: "Flores para a casa", description: "Um toque de beleza para o começo da nossa vida juntos.", image: "assets/images/gifts/flores.svg", amount: 140, enabled: "TRUE", sort_order: 15 },
       { gift_id: "P-016", title: "Ajuda para o novo lar", description: "Uma contribuição livre, prática e cheia de significado.", image: "assets/images/gifts/novo-lar.svg", amount: 500, enabled: "TRUE", sort_order: 16 },
       { gift_id: "P-017", title: "Experiência gastronômica", description: "Um almoço ou jantar para celebrarmos sem pressa.", image: "assets/images/gifts/experiencia.svg", amount: 380, enabled: "TRUE", sort_order: 17 },
-      { gift_id: "P-018", title: "Cota carinho", description: "Um presente simbólico para participar da nossa história do seu jeito.", image: "assets/images/gifts/presente.svg", amount: 100, enabled: "TRUE", sort_order: 18 }
+      { gift_id: "P-018", title: "Contribuição especial", description: "Um presente simbólico para participar da nossa história do seu jeito.", image: "assets/images/gifts/presente.svg", amount: 100, enabled: "TRUE", sort_order: 18 }
     ],
     messages: [],
     updatedAt: new Date().toISOString()

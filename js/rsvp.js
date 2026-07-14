@@ -17,6 +17,7 @@ window.WeddingRsvp = {
     this.details = document.getElementById("rsvpDetails");
     this.companionChoice = document.getElementById("companionChoice");
     this.companionNameField = document.getElementById("companionNameField");
+    this.phone = this.form.elements.phone;
     this.submitButton = this.form.querySelector('button[type="submit"]');
 
     this.restoreDraft();
@@ -49,6 +50,9 @@ window.WeddingRsvp = {
     });
 
     this.form.addEventListener("input", (event) => {
+      if (event.target === this.phone) {
+        this.phone.value = this.formatPhone(this.phone.value);
+      }
       if (event.target !== this.search) this.persistDraft();
       this.updateSubmitState();
     });
@@ -223,7 +227,7 @@ window.WeddingRsvp = {
 
     try {
       const result = await window.WeddingApi.submitRsvp(data);
-      this.updateStatus(result.message || "Confirmação registrada com carinho. Obrigado!");
+      this.updateStatus(result.message || "Confirmação registrada. Obrigado!");
       window.WeddingCache.remove(window.WEDDING_CONFIG.cache.rsvpDraftKey);
       this.resetForm();
     } catch (error) {
@@ -246,6 +250,7 @@ window.WeddingRsvp = {
       companionsConfirmed: attendance === "confirmed" && bringCompanion === "yes" ? 1 : 0,
       companionName: this.form.elements.companionName.value.trim(),
       phone: this.form.elements.phone.value.trim(),
+      phoneDigits: this.onlyDigits(this.form.elements.phone.value),
       email: this.form.elements.email.value.trim(),
       source: "site",
       userAgent: navigator.userAgent
@@ -297,6 +302,23 @@ window.WeddingRsvp = {
     const companions = Number(guest.allowed_companions || 0);
     const group = guest.group ? `${guest.group} · ` : "";
     return `${group}${companions > 0 ? "com acompanhante" : "sem acompanhante"}`;
+  },
+
+  formatPhone(value) {
+    const digits = this.onlyDigits(value).slice(0, 11);
+    if (digits.length <= 2) return digits ? `(${digits}` : "";
+
+    const area = digits.slice(0, 2);
+    const number = digits.slice(2);
+    const firstPartLength = digits.length > 10 ? 5 : 4;
+    const firstPart = number.slice(0, firstPartLength);
+    const secondPart = number.slice(firstPartLength, firstPartLength + 4);
+
+    return `(${area}) ${firstPart}${secondPart ? `-${secondPart}` : ""}`;
+  },
+
+  onlyDigits(value) {
+    return String(value || "").replace(/\D/g, "");
   },
 
   escapeHtml(value) {
