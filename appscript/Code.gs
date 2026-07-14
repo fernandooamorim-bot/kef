@@ -233,19 +233,13 @@ function doPost(e) {
 }
 
 function testarAutorizacaoEmail() {
-  const recipient = Session.getActiveUser().getEmail();
-  if (!recipient) {
-    throw new Error("Não foi possível identificar o email da conta ativa. Execute esta função pelo editor do Apps Script com a conta dona do Web App.");
-  }
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, [
+    "https://www.googleapis.com/auth/script.send_mail",
+    "https://www.googleapis.com/auth/spreadsheets.currentonly"
+  ]);
 
-  MailApp.sendEmail({
-    to: recipient,
-    subject: "Teste de autorização de email - Krisna & Fernando",
-    name: "Krisna & Fernando",
-    body: "Teste concluído. O Apps Script está autorizado a enviar emails de confirmação do RSVP."
-  });
-
-  Logger.log("Email de teste enviado para: " + recipient);
+  const quota = MailApp.getRemainingDailyQuota();
+  Logger.log("Autorização de email concluída. Cota diária restante: " + quota);
 }
 
 function handleRsvp_(data) {
