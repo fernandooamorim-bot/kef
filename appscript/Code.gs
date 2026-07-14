@@ -232,6 +232,22 @@ function doPost(e) {
   }
 }
 
+function testarAutorizacaoEmail() {
+  const recipient = Session.getActiveUser().getEmail();
+  if (!recipient) {
+    throw new Error("Não foi possível identificar o email da conta ativa. Execute esta função pelo editor do Apps Script com a conta dona do Web App.");
+  }
+
+  MailApp.sendEmail({
+    to: recipient,
+    subject: "Teste de autorização de email - Krisna & Fernando",
+    name: "Krisna & Fernando",
+    body: "Teste concluído. O Apps Script está autorizado a enviar emails de confirmação do RSVP."
+  });
+
+  Logger.log("Email de teste enviado para: " + recipient);
+}
+
 function handleRsvp_(data) {
   if (!data.guestId || !data.guestName) {
     return jsonResponse(false, null, "Selecione seu nome na lista de convidados.");
