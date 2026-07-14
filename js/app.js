@@ -10,9 +10,16 @@ const app = {
     window.WeddingRsvp.init();
     window.WeddingApi.getPublicConfig().then((data) => {
       this.applyRemoteConfig(data);
-      window.WeddingGifts.init(data);
+      window.WeddingGifts.init(this.withLocalGifts(data));
       this.initReveal();
     });
+  },
+
+  withLocalGifts(data) {
+    return {
+      ...(data || {}),
+      gifts: window.WEDDING_CONFIG.fallbackData.gifts
+    };
   },
 
   applyRemoteConfig(data) {
