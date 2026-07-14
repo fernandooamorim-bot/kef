@@ -50,6 +50,7 @@
 
 .checkin-login form,
 .manual-panel,
+.checkin-history,
 .scanner-panel,
 .checkin-result {
   border: 1px solid rgba(78, 90, 66, 0.16);
@@ -57,7 +58,8 @@
 }
 
 .checkin-login form,
-.manual-panel {
+.manual-panel,
+.checkin-history {
   display: grid;
   gap: 0.85rem;
   padding: 1rem;
@@ -188,6 +190,10 @@
   border-left-color: #a64242;
 }
 
+.checkin-result--reading {
+  border-left-color: var(--color-gold);
+}
+
 .checkin-result dl {
   display: grid;
   gap: 0.25rem;
@@ -239,13 +245,73 @@
   pointer-events: none;
 }
 
+.scanner-panel::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.scanner-panel.is-reading .scanner-frame {
+  border-color: var(--color-gold);
+}
+
+.scanner-panel.is-valid .scanner-frame,
+.scanner-panel.is-valid::after {
+  border-color: #2f7d4f;
+}
+
+.scanner-panel.is-warning .scanner-frame,
+.scanner-panel.is-warning::after {
+  border-color: #b28a2e;
+}
+
+.scanner-panel.is-error .scanner-frame,
+.scanner-panel.is-error::after {
+  border-color: #a64242;
+}
+
+.scanner-panel.is-valid::after {
+  background: rgba(47, 125, 79, 0.24);
+  opacity: 1;
+}
+
+.scanner-panel.is-warning::after {
+  background: rgba(178, 138, 46, 0.24);
+  opacity: 1;
+}
+
+.scanner-panel.is-error::after {
+  background: rgba(166, 66, 66, 0.24);
+  opacity: 1;
+}
+
+.scanner-signal {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 2;
+  background: rgba(18, 17, 15, 0.78);
+  color: var(--color-paper);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  padding: 0.75rem 0.9rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .checkin-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
 }
 
-.manual-panel h2 {
+.manual-panel h2,
+.checkin-history h2 {
   margin: 0;
   color: var(--color-olive);
   font-family: var(--font-display);
@@ -280,6 +346,45 @@
 .manual-result span {
   color: var(--color-muted);
   font-size: 0.88rem;
+}
+
+.checkin-history__list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.checkin-history__list p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.checkin-history__item {
+  display: grid;
+  gap: 0.18rem;
+  border-left: 5px solid var(--color-gold);
+  background: rgba(248, 244, 236, 0.62);
+  padding: 0.72rem 0.85rem;
+}
+
+.checkin-history__item--allowed {
+  border-left-color: #2f7d4f;
+}
+
+.checkin-history__item--used {
+  border-left-color: #b28a2e;
+}
+
+.checkin-history__item--invalid {
+  border-left-color: #a64242;
+}
+
+.checkin-history__item strong {
+  color: var(--color-ink);
+}
+
+.checkin-history__item span {
+  color: var(--color-muted);
+  font-size: 0.84rem;
 }
 
 @media (max-width: 560px) {

@@ -2,8 +2,13 @@ window.WeddingCheckin = {
   credentials: null,
   stream: null,
   scanning: false,
+  validating: false,
   lastToken: "",
   lastReadAt: 0,
+  readLockedUntil: 0,
+  resetTimer: null,
+  audioContext: null,
+  history: [],
 
   init() {
     this.cacheElements();
@@ -28,12 +33,15 @@ window.WeddingCheckin = {
     this.resultName = document.getElementById("resultName");
     this.resultMessage = document.getElementById("resultMessage");
     this.resultDetails = document.getElementById("resultDetails");
+    this.scannerPanel = document.getElementById("scannerPanel");
+    this.scannerSignal = document.getElementById("scannerSignal");
     this.video = document.getElementById("scannerVideo");
     this.canvas = document.getElementById("scannerCanvas");
     this.startButton = document.getElementById("startScannerButton");
     this.stopButton = document.getElementById("stopScannerButton");
     this.manualForm = document.getElementById("manualForm");
     this.manualResults = document.getElementById("manualResults");
+    this.historyList = document.getElementById("checkinHistory");
   },
 
   bindEvents() {
@@ -129,14 +137,19 @@ window.WeddingCheckin = {
       this.scanning = true;
       this.startButton.disabled = true;
       this.stopButton.disabled = false;
+      this.prepareAudio();
+      this.setScannerSignal("reading", "Câmera ativa. Aponte para o QR Code.");
       this.scanFrame();
     } catch (error) {
       this.showResult("invalid", "Câmera bloqueada", "Use a busca manual", "Permita o acesso à câmera ou faça a validação pelo nome.");
+      this.setScannerSignal("error", "Câmera bloqueada.");
     }
   },
 
   stopScanner() {
     this.scanning = false;
+    this.validating = false;
+    window.clearTimeout(this.resetTimer);
     if (this.stream) {
       this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;
@@ -144,6 +157,7 @@ window.WeddingCheckin = {
     this.video.srcObject = null;
     this.startButton.disabled = false;
     this.stopButton.disabled = true;
+    this.setScannerSignal("", "Câmera parada");
   },
 
   scanFrame() {
@@ -158,7 +172,7 @@ window.WeddingCheckin = {
       context.drawImage(this.video, 0, 0, width, height);
       const imageData = context.getImageData(0, 0, width, height);
       const code = window.jsQR(imageData.data, width, height);
-      if (code?.data) this.handleQrValue(code.data);
+      if (code?.data && Date.now() >= this.readLockedUntil && !this.validating) this.handleQrValue(code.data);
     }
 
     window.requestAnimationFrame(() => this.scanFrame());
@@ -166,9 +180,12 @@ window.WeddingCheckin = {
 
   handleQrValue(value) {
     const now = Date.now();
-    if (value === this.lastToken && now - this.lastReadAt < 4500) return;
+    if (value === this.lastToken && now - this.lastReadAt < 5500) return;
     this.lastToken = value;
     this.lastReadAt = now;
+    this.readLockedUntil = now + 3200;
+    this.setScannerSignal("reading", "QR Code lido. Validando...");
+    this.playFeedback("read");
     this.validateToken(value);
   },
 
@@ -178,7 +195,8 @@ window.WeddingCheckin = {
       return;
     }
 
-    this.showResult("idle", "Validando convite", "Aguarde...", "Consultando a lista de confirmações.");
+    this.validating = true;
+    this.showResult("reading", "Validando convite", "Aguarde...", "Consultando a lista de confirmações.");
     try {
       const result = await window.WeddingApi.validateCheckin({
         ...this.credentials,
@@ -187,6 +205,9 @@ window.WeddingCheckin = {
       this.renderValidation(result);
     } catch (error) {
       this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
+      this.afterValidation("invalid", "Falha na validação");
+    } finally {
+      this.validating = false;
     }
   },
 
@@ -236,7 +257,8 @@ window.WeddingCheckin = {
       return;
     }
 
-    this.showResult("idle", "Validando convite", guest.name || "Convidado", "Consultando a lista de confirmações.");
+    this.validating = true;
+    this.showResult("reading", "Validando convite", guest.name || "Convidado", "Consultando a lista de confirmações.");
     try {
       const result = await window.WeddingApi.validateCheckin({
         ...this.credentials,
@@ -245,17 +267,106 @@ window.WeddingCheckin = {
       this.renderValidation(result);
     } catch (error) {
       this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
+      this.afterValidation("invalid", "Falha na validação");
+    } finally {
+      this.validating = false;
     }
   },
 
   renderValidation(result) {
     const guest = result.guest || {};
     this.showResult(result.status, result.title, guest.name || "Convite", result.message, guest);
-    window.setTimeout(() => {
-      if (result.status === "allowed") {
-        this.showResult("idle", "Pronto para validar", "Aponte a câmera para o próximo QR Code", "A validação aparecerá aqui em tempo real.");
-      }
-    }, 2400);
+    this.afterValidation(result.status, result.title, guest.name || "Convite", result.message);
+    this.addHistory(result.status, result.title, guest.name || "Convite", result.message);
+  },
+
+  afterValidation(status, title) {
+    const signalMode = status === "allowed" ? "valid" : status === "used" ? "warning" : "error";
+    const soundMode = status === "allowed" ? "success" : status === "used" ? "warning" : "error";
+    const text = status === "allowed"
+      ? "Convite validado. Próxima leitura em instantes."
+      : `${title || "Leitura registrada"}. Próxima leitura em instantes.`;
+
+    this.readLockedUntil = Date.now() + 3200;
+    this.setScannerSignal(signalMode, text);
+    this.playFeedback(soundMode);
+    window.clearTimeout(this.resetTimer);
+    this.resetTimer = window.setTimeout(() => {
+      if (!this.scanning) return;
+      this.showResult("idle", "Pronto para validar", "Aponte a câmera para o próximo QR Code", "A validação aparecerá aqui em tempo real.");
+      this.setScannerSignal("reading", "Câmera ativa. Aponte para o QR Code.");
+    }, 3200);
+  },
+
+  setScannerSignal(mode, text) {
+    if (!this.scannerPanel || !this.scannerSignal) return;
+    this.scannerPanel.classList.remove("is-reading", "is-valid", "is-warning", "is-error");
+    if (mode) this.scannerPanel.classList.add(`is-${mode}`);
+    this.scannerSignal.textContent = text || "";
+  },
+
+  prepareAudio() {
+    if (this.audioContext) return;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    this.audioContext = new AudioContext();
+  },
+
+  playFeedback(type) {
+    this.prepareAudio();
+    if (!this.audioContext) return;
+    if (this.audioContext.state === "suspended") this.audioContext.resume();
+
+    const patterns = {
+      read: [740],
+      success: [880, 1170],
+      warning: [520, 390],
+      error: [220, 180]
+    };
+    const tones = patterns[type] || patterns.read;
+    tones.forEach((frequency, index) => this.playTone(frequency, index * 115));
+  },
+
+  playTone(frequency, delay) {
+    const startAt = this.audioContext.currentTime + delay / 1000;
+    const oscillator = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, startAt);
+    gain.gain.setValueAtTime(0.0001, startAt);
+    gain.gain.exponentialRampToValueAtTime(0.12, startAt + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.12);
+    oscillator.connect(gain);
+    gain.connect(this.audioContext.destination);
+    oscillator.start(startAt);
+    oscillator.stop(startAt + 0.14);
+  },
+
+  addHistory(status, title, name, message) {
+    this.history.unshift({
+      status: status || "invalid",
+      title: title || "Leitura registrada",
+      name: name || "Convite",
+      message: message || "",
+      time: new Date()
+    });
+    this.history = this.history.slice(0, 6);
+    this.renderHistory();
+  },
+
+  renderHistory() {
+    if (!this.historyList) return;
+    this.historyList.innerHTML = "";
+    this.history.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = `checkin-history__item checkin-history__item--${this.escape(item.status)}`;
+      row.innerHTML = `
+        <strong>${this.escape(item.name)}</strong>
+        <span>${this.escape(item.title)} · ${this.escape(this.formatTime(item.time))}</span>
+        <span>${this.escape(item.message)}</span>
+      `;
+      this.historyList.appendChild(row);
+    });
   },
 
   showResult(status, title, name, message, guest = {}) {
@@ -295,6 +406,16 @@ window.WeddingCheckin = {
     return new Intl.DateTimeFormat("pt-BR", {
       dateStyle: "short",
       timeStyle: "short"
+    }).format(date);
+  },
+
+  formatTime(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
     }).format(date);
   },
 

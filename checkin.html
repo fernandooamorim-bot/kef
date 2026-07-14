@@ -46,10 +46,11 @@
           <dl id="resultDetails"></dl>
         </section>
 
-        <section class="scanner-panel">
+        <section class="scanner-panel" id="scannerPanel">
           <video id="scannerVideo" playsinline muted></video>
           <canvas id="scannerCanvas" hidden></canvas>
           <div class="scanner-frame" aria-hidden="true"></div>
+          <div class="scanner-signal" id="scannerSignal" aria-live="polite">Câmera aguardando início</div>
         </section>
 
         <div class="checkin-actions">
@@ -67,6 +68,13 @@
             <button class="checkin-button checkin-button--small" type="submit">Buscar</button>
           </form>
           <div class="manual-results" id="manualResults"></div>
+        </section>
+
+        <section class="checkin-history" aria-label="Últimas validações">
+          <h2>Últimas leituras</h2>
+          <div id="checkinHistory" class="checkin-history__list">
+            <p>Nenhuma leitura registrada nesta sessão.</p>
+          </div>
         </section>
       </section>
     </main>
