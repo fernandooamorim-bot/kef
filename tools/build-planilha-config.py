@@ -28,7 +28,7 @@ SHEETS = [
             ["Abas principais"],
             ["CONFIG", "Configurações globais do site em chave/valor."],
             ["PAGINAS", "Textos e blocos editáveis por seção."],
-            ["CONVIDADOS", "Base futura de convidados e controle interno."],
+            ["CONVIDADOS", "Base oficial de convidados, grupos e acompanhantes permitidos."],
             ["RSVP", "Respostas enviadas pelo formulário do site."],
             ["PRESENTES", "Lista, PIX, cotas ou links de presentes."],
             ["GALERIA", "Fotos que podem ser exibidas no site."],
@@ -93,10 +93,10 @@ SHEETS = [
     {
         "name": "RSVP",
         "rows": [
-            ["timestamp", "name", "phone", "email", "companion", "source", "userAgent"],
-            ["", "", "", "", "", "", ""],
+            ["timestamp", "guest_id", "guest_name", "attendance", "companions_confirmed", "companion_name", "phone", "email", "source", "userAgent"],
+            ["", "", "", "", "", "", "", "", "", ""],
         ],
-        "widths": [24, 34, 22, 34, 34, 16, 70],
+        "widths": [24, 16, 34, 20, 24, 34, 22, 34, 16, 70],
     },
     {
         "name": "PRESENTES",

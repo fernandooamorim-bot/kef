@@ -8,7 +8,7 @@
   --color-gold: #b29a68;
   --color-lavender: #b8adc5;
   --shadow-soft: 0 22px 60px rgba(53, 44, 31, 0.16);
-  --font-hero: "Bodoni Moda", "Cormorant Garamond", Georgia, serif;
+  --font-hero: "Italianno", "Cormorant Garamond", Georgia, serif;
   --font-display: "Cormorant Garamond", Georgia, serif;
   --font-body: "Manrope", Arial, sans-serif;
   --header-height: 76px;
@@ -44,6 +44,10 @@ a {
   color: inherit;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 button,
 input {
   font: inherit;
@@ -66,8 +70,9 @@ h3 {
 
 h1 {
   font-family: var(--font-hero);
-  font-size: clamp(4.2rem, 11vw, 9rem);
+  font-size: clamp(4.8rem, 8.8vw, 9.6rem);
   font-weight: 400;
+  line-height: 0.78;
   margin-bottom: 1rem;
 }
 

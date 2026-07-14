@@ -46,8 +46,38 @@ O site funciona sem Apps Script, usando fallback local. Nesse modo, o RSVP fica 
 Veja `appscript/README.md`. O arquivo `appscript/Code.gs` ja contem uma API inicial com:
 
 - `doGet` para configuracoes publicas.
-- `doPost` para RSVP.
+- `doGet` para autocomplete da aba `CONVIDADOS`.
+- `doPost` para RSVP validado pela lista oficial de convidados.
+- `doPost` para registrar presente escolhido e mensagem na aba `PEDIDOS_PRESENTES`.
 - retorno JSON padronizado.
+
+## RSVP e convidados
+
+O formulario de presença usa a aba `CONVIDADOS` como fonte oficial. O convidado digita o início do nome, seleciona uma sugestão real e só então vê as opções de confirmação.
+
+Na aba `CONVIDADOS`, use:
+
+- `guest_id`: identificador único, como `KF-001`.
+- `name`: nome exibido no autocomplete.
+- `group`: família, amigos, trabalho ou outro grupo interno.
+- `allowed_companions`: `0` para sem acompanhante, `1` ou mais para liberar acompanhante.
+- `status`: deixe como `pendente` ou `ativo`; use `cancelado` ou `inativo` para ocultar da busca.
+
+Quando houver acompanhante permitido, o site pergunta se a pessoa levará acompanhante e só pede o nome se a resposta for sim.
+
+## Presentes
+
+A lista de presentes e simbolica. Cada item vem da aba `PRESENTES`, com:
+
+- `gift_id`
+- `title`
+- `description`
+- `image`
+- `amount`
+- `enabled`
+- `sort_order`
+
+Quando alguem escolhe um presente, o site abre um formulario com nome, telefone, email e mensagem. Nesta fase, o registro e salvo em `PEDIDOS_PRESENTES` com status `created`. Na proxima etapa, esse mesmo registro sera conectado ao PagBank ou Mercado Pago para gerar Pix/cartao e atualizar o status de pagamento.
 
 ## Assets
 
@@ -89,6 +119,6 @@ ffmpeg -i Design/OBQH1913.mp4 -vf "scale='min(1280,iw)':-2" -c:v libvpx-vp9 -crf
 
 ## Proximos ajustes recomendados
 
-- Definir conteudo final da lista de presentes.
+- Conectar pagamentos da lista de presentes ao PagBank ou Mercado Pago.
 - Publicar o Apps Script e inserir a URL em `js/config.js`.
 - Revisar a ordem definitiva da galeria.

@@ -8,7 +8,11 @@ const app = {
     window.WeddingGallery.init();
     this.initReveal();
     window.WeddingRsvp.init();
-    window.WeddingApi.getPublicConfig().then((data) => this.applyRemoteConfig(data));
+    window.WeddingApi.getPublicConfig().then((data) => {
+      this.applyRemoteConfig(data);
+      window.WeddingGifts.init(data);
+      this.initReveal();
+    });
   },
 
   applyRemoteConfig(data) {

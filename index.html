@@ -15,7 +15,7 @@
     <link rel="alternate icon" href="assets/brand/monograma-small.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Italianno&family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="preload" as="image" href="assets/images/gallery/IMG_1686.JPG.jpg">
     <link rel="preload" as="image" href="assets/images/gallery/_BQH1940.jpg.jpg">
     <link rel="preload" as="video" href="assets/video/intro-casal-v2.mp4" type="video/mp4">
@@ -29,13 +29,9 @@
       <div class="site-loader__texture" aria-hidden="true"></div>
       <div class="site-loader__content">
         <img src="assets/brand/monograma-small.png" alt="Monograma Krisna e Fernando" class="site-loader__monogram">
-        <p>Krisna & Fernando</p>
-        <div class="site-loader__heart">
-          <span aria-hidden="true">♡</span>
-          <span aria-hidden="true">♥</span>
-        </div>
+        <p>Carregando o nosso dia</p>
         <div class="site-loader__bar">
-          <span>Preparando o nosso dia</span>
+          <i aria-hidden="true"></i>
         </div>
       </div>
     </div>
@@ -73,7 +69,6 @@
           <img src="assets/brand/monograma-small.png" alt="Monograma Krisna e Fernando" class="hero__monogram">
           <p class="eyebrow">29 de outubro de 2026</p>
           <h1>Krisna & Fernando</h1>
-          <p class="hero__lead">Com amor, presença de Deus e a alegria de quem encontrou no outro o seu lugar.</p>
           <div class="countdown" id="countdown" aria-label="Contagem regressiva para o casamento">
             <div><strong data-count="days">0</strong><span>Dias</span></div>
             <div><strong data-count="hours">0</strong><span>Horas</span></div>
@@ -82,8 +77,15 @@
           </div>
           <div class="hero__actions">
             <a class="button button--primary" href="#presenca">Confirmar presença</a>
-            <a class="button button--ghost" href="#casamento">Ver detalhes</a>
+            <a class="button button--ghost" href="#presentes">Presentear os noivos</a>
           </div>
+        </div>
+      </section>
+
+      <section class="opening-note" aria-label="Mensagem de abertura">
+        <div class="opening-note__inner reveal">
+          <span></span>
+          <p>Com amor, presença de Deus e a alegria de quem encontrou no outro o seu lugar.</p>
         </div>
       </section>
 
@@ -161,41 +163,79 @@
             <h2>Estamos preparando tudo com muito amor e presença de Deus.</h2>
             <p>Para que possamos organizar da melhor forma possível esse dia tão especial, pedimos que nos confirme sua presença.</p>
           </div>
-          <form class="rsvp-form reveal" id="rsvpForm">
-            <label>
-              <span>Nome completo</span>
-              <input name="name" autocomplete="name" required>
-            </label>
-            <label>
-              <span>Telefone</span>
-              <input name="phone" autocomplete="tel" inputmode="tel" required>
-            </label>
-            <label>
-              <span>Email</span>
-              <input name="email" autocomplete="email" type="email">
-            </label>
-            <label>
-              <span>Nome do acompanhante</span>
-              <input name="companion" autocomplete="off">
-            </label>
-            <button class="button button--primary" type="submit">Enviar confirmação</button>
+          <form class="rsvp-form reveal" id="rsvpForm" novalidate>
+            <div class="rsvp-search">
+              <label for="guestSearch">
+                <span>Seu nome</span>
+                <input id="guestSearch" name="guestSearch" autocomplete="off" aria-describedby="guestSearchHelp" aria-controls="guestSuggestions" aria-expanded="false" required>
+              </label>
+              <input type="hidden" name="guestId">
+              <div class="rsvp-suggestions" id="guestSuggestions" role="listbox" hidden></div>
+              <p class="field-help" id="guestSearchHelp">Digite as primeiras letras e selecione seu nome na lista.</p>
+            </div>
+
+            <div class="rsvp-selected" id="guestSelected" hidden>
+              <span>Convidado selecionado</span>
+              <strong></strong>
+              <button type="button" class="text-button" id="changeGuestButton">Trocar</button>
+            </div>
+
+            <div class="rsvp-details" id="rsvpDetails" hidden>
+              <fieldset class="choice-group">
+                <legend>Você confirma presença?</legend>
+                <label>
+                  <input type="radio" name="attendance" value="confirmed" required>
+                  <span>Sim, confirmo presença</span>
+                </label>
+                <label>
+                  <input type="radio" name="attendance" value="declined">
+                  <span>Não poderei comparecer</span>
+                </label>
+              </fieldset>
+
+              <fieldset class="choice-group" id="companionChoice" hidden>
+                <legend>Você levará acompanhante?</legend>
+                <label>
+                  <input type="radio" name="bringCompanion" value="yes">
+                  <span>Sim</span>
+                </label>
+                <label>
+                  <input type="radio" name="bringCompanion" value="no">
+                  <span>Não</span>
+                </label>
+              </fieldset>
+
+              <label id="companionNameField" hidden>
+                <span>Nome do acompanhante</span>
+                <input name="companionName" autocomplete="off">
+              </label>
+
+              <label>
+                <span>Telefone <small>opcional</small></span>
+                <input name="phone" autocomplete="tel" inputmode="tel">
+              </label>
+
+              <label>
+                <span>Email <small>opcional</small></span>
+                <input name="email" autocomplete="email" type="email">
+              </label>
+            </div>
+
+            <button class="button button--primary" type="submit" disabled>Enviar confirmação</button>
             <p class="form-status" id="formStatus" role="status"></p>
           </form>
         </div>
       </section>
 
       <section class="gifts section band" id="presentes">
-        <div class="section__inner gifts__grid">
+        <div class="section__inner gifts__intro">
           <div class="reveal">
             <p class="eyebrow">Presentes</p>
             <h2>Seu carinho já é parte da nossa casa.</h2>
-            <p>Em breve, esta seção receberá nossa lista de presentes, cotas e informações configuradas pela planilha central do site.</p>
-          </div>
-          <div class="gift-card reveal">
-            <span>Lista em preparação</span>
-            <p>Depois, você poderá trocar este bloco por links de loja, PIX, cotas de lua de mel ou qualquer formato escolhido pelo casal.</p>
+            <p>Escolha um presente simbólico, escreva uma mensagem para nós e siga para a próxima etapa. Cada contribuição ajuda a construir memórias do nosso novo lar.</p>
           </div>
         </div>
+        <div class="gifts__grid section__inner" id="giftsGrid" aria-live="polite"></div>
       </section>
     </main>
 
@@ -210,11 +250,44 @@
       <img src="" alt="">
     </dialog>
 
+    <dialog class="gift-dialog" id="giftDialog" aria-label="Presentear os noivos">
+      <form method="dialog" class="gift-dialog__panel" id="giftForm">
+        <button class="gift-dialog__close" type="button" id="closeGiftDialog" aria-label="Fechar">×</button>
+        <img src="" alt="" class="gift-dialog__image" id="giftDialogImage">
+        <div class="gift-dialog__content">
+          <p class="eyebrow">Presentear os noivos</p>
+          <h3 id="giftDialogTitle">Presente escolhido</h3>
+          <p id="giftDialogDescription"></p>
+          <strong id="giftDialogAmount"></strong>
+          <input type="hidden" name="giftId">
+          <label>
+            <span>Seu nome</span>
+            <input name="name" autocomplete="name" required>
+          </label>
+          <label>
+            <span>Telefone</span>
+            <input name="phone" autocomplete="tel" inputmode="tel" required>
+          </label>
+          <label>
+            <span>Email</span>
+            <input name="email" autocomplete="email" type="email">
+          </label>
+          <label>
+            <span>Mensagem para os noivos</span>
+            <textarea name="message" rows="4" maxlength="500" placeholder="Escreva uma mensagem carinhosa para guardarmos."></textarea>
+          </label>
+          <button class="button button--primary" type="submit">Continuar para pagamento</button>
+          <p class="form-status" id="giftStatus" role="status"></p>
+        </div>
+      </form>
+    </dialog>
+
     <script src="js/config.js"></script>
     <script src="js/cache.js"></script>
     <script src="js/api.js"></script>
     <script src="js/countdown.js"></script>
     <script src="js/gallery.js"></script>
+    <script src="js/gifts.js"></script>
     <script src="js/rsvp.js"></script>
     <script src="js/app.js"></script>
   </body>

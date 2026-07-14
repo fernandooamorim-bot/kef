@@ -25,9 +25,9 @@
   inset: 0 0 auto 0;
   z-index: 50;
   height: var(--header-height);
-  display: flex;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   padding: 0 2rem;
   background: rgba(248, 244, 236, 0.76);
   border-bottom: 1px solid rgba(78, 90, 66, 0.12);
@@ -38,23 +38,28 @@
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
+  min-width: 0;
   text-decoration: none;
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 600;
 }
 
+.brand span {
+  white-space: nowrap;
+}
+
 .brand img {
   width: 48px;
   height: 48px;
   object-fit: contain;
-  padding: 0.28rem;
-  background: rgba(255, 250, 242, 0.86);
-  border: 1px solid rgba(78, 90, 66, 0.18);
-  box-shadow: 0 8px 24px rgba(53, 44, 31, 0.12);
+  filter:
+    drop-shadow(0 0 0 rgba(78, 90, 66, 1))
+    drop-shadow(0 4px 10px rgba(53, 44, 31, 0.16));
 }
 
 .site-nav {
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -81,7 +86,7 @@
 .hero {
   min-height: 100svh;
   display: grid;
-  place-items: center start;
+  place-items: center;
   padding: calc(var(--header-height) + 4rem) 0 4rem;
   color: var(--color-paper);
 }
@@ -102,7 +107,7 @@
 
 .hero__image {
   object-fit: cover;
-  object-position: center 62%;
+  object-position: center 38%;
   opacity: 1;
   transition: opacity 800ms ease;
 }
@@ -110,7 +115,7 @@
 .hero__video {
   z-index: 1;
   object-fit: cover;
-  object-position: center 68%;
+  object-position: center 28%;
   opacity: 0;
   transition: opacity 900ms ease;
 }
@@ -133,12 +138,19 @@
 .hero__content {
   position: relative;
   z-index: 3;
-  width: min(1120px, calc(100% - 2rem));
+  width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
+  display: grid;
+  justify-items: center;
+  text-align: center;
 }
 
 .hero__content p {
   color: rgba(255, 250, 242, 0.82);
+}
+
+.hero__content h1 {
+  white-space: nowrap;
 }
 
 .hero__monogram {
@@ -159,10 +171,40 @@
   margin-top: 1.8rem;
 }
 
+.opening-note {
+  position: relative;
+  padding: clamp(2.5rem, 6vw, 4.5rem) 1rem;
+  background:
+    linear-gradient(rgba(255, 250, 242, 0.9), rgba(255, 250, 242, 0.94)),
+    url("../assets/brand/estampa-fk.jpg") center / 820px auto;
+  text-align: center;
+}
+
+.opening-note__inner {
+  width: min(820px, 100%);
+  margin: 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+}
+
+.opening-note__inner span {
+  width: 54px;
+  height: 1px;
+  background: var(--color-gold);
+}
+
+.opening-note__inner p {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 3rem);
+  line-height: 1.18;
+}
+
 .story__grid,
 .wedding__grid,
-.rsvp__grid,
-.gifts__grid {
+.rsvp__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.86fr);
   align-items: center;
@@ -205,6 +247,18 @@
   gap: 0.7rem;
 }
 
+.gifts__intro {
+  max-width: 760px;
+  text-align: center;
+  margin-bottom: 2.6rem;
+}
+
+.gifts__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 .rsvp {
   background:
     linear-gradient(90deg, rgba(255, 250, 242, 0.9), rgba(255, 250, 242, 0.66)),
@@ -232,12 +286,49 @@
   color: rgba(255, 250, 242, 0.76);
 }
 
+@media (max-width: 1100px) {
+  .site-header {
+    padding: 0 1.25rem;
+  }
+
+  .brand {
+    gap: 0.6rem;
+    font-size: 1.18rem;
+  }
+
+  .brand img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .site-nav {
+    gap: 0.85rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+  }
+
+  .hero__content h1 {
+    font-size: clamp(4.2rem, 8vw, 7rem);
+  }
+}
+
 @media (max-width: 860px) {
   .site-header {
+    grid-template-columns: 1fr 44px;
     padding: 0 1rem;
   }
 
+  .brand {
+    min-width: 0;
+  }
+
+  .brand span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .nav-toggle {
+    justify-self: end;
     width: 44px;
     height: 44px;
     display: grid;
@@ -264,12 +355,19 @@
     border-bottom: 1px solid rgba(78, 90, 66, 0.12);
     box-shadow: 0 18px 40px rgba(53, 44, 31, 0.12);
     overflow-y: auto;
-    transform: translateY(-120%);
-    transition: transform 220ms ease;
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    transform: translateY(calc(-100% - var(--header-height) - 1rem));
+    transition: transform 220ms ease, opacity 180ms ease, visibility 0s linear 220ms;
   }
 
   .site-nav.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
     transform: translateY(0);
+    transition: transform 220ms ease, opacity 180ms ease, visibility 0s;
   }
 
   .site-nav a {
@@ -279,7 +377,7 @@
   .hero {
     min-height: 100svh;
     padding: calc(var(--header-height) + 2.5rem) 0 2rem;
-    place-items: end start;
+    place-items: center;
   }
 
   .hero__shade {
@@ -290,11 +388,15 @@
 
   .hero__media img,
   .hero__video {
-    object-position: 50% 72%;
+    object-position: 50% 24%;
   }
 
   .hero__content {
-    width: min(100% - 1.5rem, 560px);
+    width: min(100% - 1.5rem, 620px);
+  }
+
+  .hero__content h1 {
+    font-size: clamp(3.8rem, 12vw, 6rem);
   }
 
   .hero__monogram {
@@ -302,19 +404,22 @@
   }
 
   .hero__lead {
-    max-width: 22rem;
+    max-width: 23rem;
   }
 
   .story__grid,
   .wedding__grid,
   .rsvp__grid,
-  .gifts__grid,
   .symbols {
     grid-template-columns: 1fr;
   }
 
   .gallery__grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .gifts__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .section {
@@ -333,12 +438,12 @@
 
   .brand {
     gap: 0.55rem;
-    font-size: 1.15rem;
+    font-size: 1rem;
   }
 
   .brand img {
-    width: 42px;
-    height: 42px;
+    width: 38px;
+    height: 38px;
   }
 
   .hero {
@@ -350,7 +455,8 @@
   }
 
   .hero__content h1 {
-    max-width: 8ch;
+    max-width: 100%;
+    font-size: clamp(2.9rem, 9.8vw, 4.2rem);
     margin-bottom: 0.75rem;
   }
 
@@ -369,5 +475,9 @@
 
   .section__inner {
     width: min(100% - 1.25rem, 1120px);
+  }
+
+  .gifts__grid {
+    grid-template-columns: 1fr;
   }
 }

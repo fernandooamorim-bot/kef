@@ -1,8 +1,11 @@
 import fs from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 
 const outputDir = new URL("../outputs/", import.meta.url);
 const outputPath = new URL("central-configuracao-krisna-fernando.xlsx", outputDir);
+const outputDirPath = fileURLToPath(outputDir);
+const outputFilePath = fileURLToPath(outputPath);
 
 const palette = {
   olive: "#4E5A42",
@@ -25,9 +28,10 @@ const sheets = [
       ["Abas principais"],
       ["CONFIG", "Configurações globais do site em chave/valor."],
       ["PAGINAS", "Textos e blocos editáveis por seção."],
-      ["CONVIDADOS", "Base futura de convidados e controle interno."],
+      ["CONVIDADOS", "Base oficial de convidados, grupos e acompanhantes permitidos."],
       ["RSVP", "Respostas enviadas pelo formulário do site."],
-      ["PRESENTES", "Lista, PIX, cotas ou links de presentes."],
+      ["PRESENTES", "Lista simbólica de presentes exibida no site."],
+      ["PEDIDOS_PRESENTES", "Presentes escolhidos, mensagens e status do pagamento."],
       ["GALERIA", "Fotos que podem ser exibidas no site."],
       ["MENSAGENS", "Mensagens ou depoimentos opcionais."],
       [""],
@@ -90,20 +94,43 @@ const sheets = [
   {
     name: "RSVP",
     rows: [
-      ["timestamp", "name", "phone", "email", "companion", "source", "userAgent"],
-      ["", "", "", "", "", "", ""]
+      ["timestamp", "guest_id", "guest_name", "attendance", "companions_confirmed", "companion_name", "phone", "email", "source", "userAgent"],
+      ["", "", "", "", "", "", "", "", "", ""]
     ],
-    widths: [24, 34, 22, 34, 34, 16, 70]
+    widths: [24, 16, 34, 20, 24, 34, 22, 34, 16, 70]
   },
   {
     name: "PRESENTES",
     rows: [
-      ["gift_id", "title", "description", "type", "url", "pix_key", "amount", "enabled", "sort_order"],
-      ["P-001", "Lista de presentes", "Link provisório para lista externa.", "link", "", "", "", "FALSE", 1],
-      ["P-002", "Cota lua de mel", "Cota simbólica para a viagem dos noivos.", "cota", "", "", 250, "FALSE", 2],
-      ["P-003", "PIX dos noivos", "Informação provisória para contribuição via PIX.", "pix", "", "", "", "FALSE", 3]
+      ["gift_id", "title", "description", "image", "amount", "enabled", "sort_order"],
+      ["P-001", "Jantar romântico", "Uma noite especial para celebrarmos com calma depois do grande dia.", "assets/images/gifts/jantar-romantico.svg", 250, "TRUE", 1],
+      ["P-002", "Cota lua de mel", "Um pedacinho da nossa primeira viagem como marido e esposa.", "assets/images/gifts/lua-de-mel.svg", 300, "TRUE", 2],
+      ["P-003", "Café da manhã dos noivos", "Para começarmos um dia da lua de mel com carinho e mesa bonita.", "assets/images/gifts/cafe-da-manha.svg", 180, "TRUE", 3],
+      ["P-004", "Noite de hospedagem", "Uma diária simbólica para descansarmos depois de tanta emoção.", "assets/images/gifts/hospedagem.svg", 450, "TRUE", 4],
+      ["P-005", "Passeio especial", "Uma experiência para guardarmos na memória da nossa viagem.", "assets/images/gifts/passeio.svg", 220, "TRUE", 5],
+      ["P-006", "Brinde dos noivos", "Uma taça levantada para agradecer por esse novo capítulo.", "assets/images/gifts/brinde.svg", 160, "TRUE", 6],
+      ["P-007", "Primeiro mercado da casa", "Aquele empurrão carinhoso para abastecer o novo lar.", "assets/images/gifts/casa.svg", 350, "TRUE", 7],
+      ["P-008", "Kit cozinha feliz", "Para receitas, cafés, conversas e pequenas alegrias do dia a dia.", "assets/images/gifts/cozinha.svg", 280, "TRUE", 8],
+      ["P-009", "Mesa posta", "Um detalhe bonito para receber amigos e família com amor.", "assets/images/gifts/mesa-posta.svg", 240, "TRUE", 9],
+      ["P-010", "Cantinho do café", "Para nossos cafés de manhã, de tarde e de depois do almoço.", "assets/images/gifts/cafe.svg", 320, "TRUE", 10],
+      ["P-011", "Enxoval dos sonhos", "Lençóis, toalhas e conforto para a rotina ficar mais leve.", "assets/images/gifts/enxoval.svg", 400, "TRUE", 11],
+      ["P-012", "Tete também casa", "Um mimo simbólico para nossa pequena participar desse momento.", "assets/images/gifts/tete.svg", 150, "TRUE", 12],
+      ["P-013", "Domingo preguiçoso", "Delivery, filme e descanso para depois da maratona do casamento.", "assets/images/gifts/domingo.svg", 190, "TRUE", 13],
+      ["P-014", "Álbum de memórias", "Para eternizar fotos e detalhes desse tempo tão especial.", "assets/images/gifts/memorias.svg", 260, "TRUE", 14],
+      ["P-015", "Flores para a casa", "Um toque de beleza para o começo da nossa vida juntos.", "assets/images/gifts/flores.svg", 140, "TRUE", 15],
+      ["P-016", "Ajuda para o novo lar", "Uma contribuição livre, prática e cheia de significado.", "assets/images/gifts/novo-lar.svg", 500, "TRUE", 16],
+      ["P-017", "Experiência gastronômica", "Um almoço ou jantar para celebrarmos sem pressa.", "assets/images/gifts/experiencia.svg", 380, "TRUE", 17],
+      ["P-018", "Cota carinho", "Um presente simbólico para participar da nossa história do seu jeito.", "assets/images/gifts/presente.svg", 100, "TRUE", 18]
     ],
-    widths: [14, 30, 58, 18, 48, 34, 16, 14, 14]
+    widths: [14, 34, 68, 44, 16, 14, 14]
+  },
+  {
+    name: "PEDIDOS_PRESENTES",
+    rows: [
+      ["created_at", "order_id", "gift_id", "gift_title", "amount", "giver_name", "giver_phone", "giver_email", "message", "status", "provider", "provider_payment_id", "payment_url", "paid_at", "source", "userAgent"],
+      ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+    ],
+    widths: [24, 24, 14, 34, 14, 32, 22, 34, 70, 16, 18, 28, 52, 24, 16, 70]
   },
   {
     name: "GALERIA",
@@ -154,7 +181,7 @@ function applyTableStyle(sheet, rowCount, colCount, widths) {
     const body = sheet.getRangeByIndexes(1, 0, rowCount - 1, colCount);
     body.format = {
       fill: palette.paper,
-      font: { size: 10.5, color: palette.ink },
+      font: { size: 10, color: palette.ink },
       wrapText: true,
       verticalAlignment: "top"
     };
@@ -162,7 +189,7 @@ function applyTableStyle(sheet, rowCount, colCount, widths) {
 }
 
 async function build() {
-  await fs.mkdir(outputDir, { recursive: true });
+  await fs.mkdir(outputDirPath, { recursive: true });
 
   const workbook = Workbook.create();
   for (const spec of sheets) {
@@ -206,8 +233,8 @@ async function build() {
   console.log(errors.ndjson);
 
   const xlsx = await SpreadsheetFile.exportXlsx(workbook);
-  await xlsx.save(outputPath.pathname);
-  console.log(outputPath.pathname);
+  await xlsx.save(outputFilePath);
+  console.log(outputFilePath);
 }
 
 await build();
