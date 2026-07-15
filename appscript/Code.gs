@@ -363,7 +363,7 @@ function handleGiftIntent_(data) {
     giver_email: data.email || "",
     email: data.email || "",
     message: data.message || "",
-    status: "created",
+    status: data.paymentUrl ? "aguardando_pagamento" : "created",
     provider: data.paymentUrl ? "pagbank" : "",
     provider_payment_id: "",
     payment_url: data.paymentUrl || "",
@@ -374,8 +374,10 @@ function handleGiftIntent_(data) {
 
   return jsonResponse(true, {
     orderId,
-    status: "created",
-    message: "Presente e mensagem registrados com sucesso."
+    status: data.paymentUrl ? "aguardando_pagamento" : "created",
+    message: data.paymentUrl
+      ? "Registro salvo. Redirecionando para o pagamento..."
+      : "Presente e mensagem registrados com sucesso."
   });
 }
 

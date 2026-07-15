@@ -21,7 +21,7 @@
     <link rel="preload" as="video" href="assets/video/intro-casal-v2.mp4" type="video/mp4">
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/layout.css?v=presentes-20260714e">
-    <link rel="stylesheet" href="css/components.css?v=pagbank-20260715">
+    <link rel="stylesheet" href="css/components.css?v=pagbank-flow-20260715">
   </head>
   <body>
     <div class="site-loader" id="siteLoader" role="status" aria-live="polite" aria-label="Carregando site">
@@ -260,9 +260,8 @@
           <p id="giftDialogDescription"></p>
           <strong id="giftDialogAmount"></strong>
           <div class="gift-payment">
-            <span>Pagamento</span>
-            <a class="button button--primary" id="giftCardPaymentLink" href="#" target="_blank" rel="noopener noreferrer">Pagar com cartão no PagBank</a>
-            <small>Depois do pagamento, deixe seu nome e mensagem para registrarmos seu presente.</small>
+            <span>Pagamento seguro</span>
+            <small>Ao continuar, sua mensagem será registrada e abriremos o PagBank para pagamento por Pix ou cartão.</small>
           </div>
           <input type="hidden" name="giftId">
           <label>
@@ -281,7 +280,7 @@
             <span>Mensagem para os noivos</span>
             <textarea name="message" rows="4" maxlength="500" placeholder="Escreva uma mensagem para guardarmos."></textarea>
           </label>
-          <button class="button button--primary" type="submit">Registrar presente e mensagem</button>
+          <button class="button button--primary gift-payment__submit" type="submit">Registrar e pagar presente</button>
           <p class="form-status" id="giftStatus" role="status"></p>
         </div>
       </form>
@@ -292,7 +291,7 @@
     <script src="js/api.js"></script>
     <script src="js/countdown.js"></script>
     <script src="js/gallery.js"></script>
-    <script src="js/gifts.js?v=pagbank-20260715"></script>
+    <script src="js/gifts.js?v=pagbank-flow-20260715"></script>
     <script src="js/rsvp.js"></script>
     <script src="js/app.js?v=presentes-20260714d"></script>
   </body>

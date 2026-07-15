@@ -654,6 +654,11 @@
   line-height: 1.45;
 }
 
+.gift-payment__submit {
+  min-height: 54px;
+  font-size: 0.82rem;
+}
+
 .lightbox {
   max-width: min(92vw, 1080px);
   max-height: 92vh;

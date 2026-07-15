@@ -19,7 +19,6 @@ window.WeddingGifts = {
     this.title = document.getElementById("giftDialogTitle");
     this.description = document.getElementById("giftDialogDescription");
     this.amount = document.getElementById("giftDialogAmount");
-    this.cardPaymentLink = document.getElementById("giftCardPaymentLink");
   },
 
   normalizeGifts(gifts) {
@@ -105,10 +104,6 @@ window.WeddingGifts = {
     this.title.textContent = gift.title;
     this.description.textContent = gift.description;
     this.amount.textContent = this.formatCurrency(gift.amount);
-    if (this.cardPaymentLink) {
-      this.cardPaymentLink.href = gift.paymentUrl || "#";
-      this.cardPaymentLink.hidden = !gift.paymentUrl;
-    }
     this.dialog.showModal();
   },
 
@@ -119,11 +114,18 @@ window.WeddingGifts = {
       return;
     }
 
-    this.status.textContent = "Registrando seu presente...";
+    if (!data.paymentUrl) {
+      this.status.textContent = "Este presente ainda não possui link de pagamento.";
+      return;
+    }
+
+    this.status.textContent = "Registrando sua mensagem...";
     try {
       const result = await window.WeddingApi.submitGiftIntent(data);
-      this.status.textContent = result.message || "Presente registrado. A etapa de pagamento será conectada em seguida.";
-      window.setTimeout(() => this.dialog.close(), 1400);
+      this.status.textContent = result.message || "Registro salvo. Redirecionando para o pagamento...";
+      window.setTimeout(() => {
+        window.location.href = data.paymentUrl;
+      }, 550);
     } catch (error) {
       this.status.textContent = error.message || "Não foi possível registrar agora. Tente novamente em instantes.";
     }
