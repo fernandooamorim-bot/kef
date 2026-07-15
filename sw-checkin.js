@@ -1,4 +1,4 @@
-const CHECKIN_CACHE = "kf-checkin-v2";
+const CHECKIN_CACHE = "kf-checkin-v3";
 const CHECKIN_ASSETS = [
   "./checkin.html",
   "./convite.html",
@@ -44,23 +44,20 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  const isCheckinAsset = url.origin === self.location.origin;
+  const isCachedCheckinAsset = url.origin === self.location.origin
+    && CHECKIN_ASSETS.includes(`.${url.pathname}`);
   const isQrReader = url.hostname === "cdn.jsdelivr.net" && url.pathname.includes("/jsQR");
-  if (!isCheckinAsset && !isQrReader) return;
+  if (!isCachedCheckinAsset && !isQrReader) return;
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const refresh = fetch(request)
-        .then((response) => {
-          if (response && (response.ok || response.type === "opaque")) {
-            const copy = response.clone();
-            caches.open(CHECKIN_CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-
-      return cached || refresh;
-    })
+    fetch(request)
+      .then((response) => {
+        if (response && (response.ok || response.type === "opaque")) {
+          const copy = response.clone();
+          caches.open(CHECKIN_CACHE).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request))
   );
 });
