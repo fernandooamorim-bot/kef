@@ -1,6 +1,41 @@
+window.WeddingFeedback = {
+  dialog: null,
+
+  init() {
+    this.dialog = document.getElementById("siteFeedbackDialog");
+    this.eyebrow = document.getElementById("siteFeedbackEyebrow");
+    this.title = document.getElementById("siteFeedbackTitle");
+    this.message = document.getElementById("siteFeedbackMessage");
+    this.okButton = document.getElementById("siteFeedbackOk");
+
+    this.okButton?.addEventListener("click", () => this.close());
+    this.dialog?.addEventListener("click", (event) => {
+      if (event.target === this.dialog) this.close();
+    });
+  },
+
+  show({ eyebrow = "Aviso", title = "Tudo certo", message = "" } = {}) {
+    if (!this.dialog) {
+      window.alert(message || title);
+      return;
+    }
+
+    this.eyebrow.textContent = eyebrow;
+    this.title.textContent = title;
+    this.message.textContent = message;
+    this.dialog.showModal();
+    this.okButton?.focus();
+  },
+
+  close() {
+    if (this.dialog?.open) this.dialog.close();
+  }
+};
+
 const app = {
   init() {
     document.body.classList.add("loading-lock");
+    window.WeddingFeedback.init();
     this.initLoader();
     this.initHeroVideo();
     this.initNav();

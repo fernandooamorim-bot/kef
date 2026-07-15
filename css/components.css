@@ -648,6 +648,45 @@
   text-transform: uppercase;
 }
 
+.gift-payment__methods {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.gift-payment__methods legend {
+  margin-bottom: 0.2rem;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.gift-payment__methods label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(78, 90, 66, 0.14);
+  background: rgba(255, 250, 242, 0.78);
+  color: var(--color-ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.gift-payment__methods input {
+  width: auto;
+  accent-color: var(--color-olive);
+}
+
+.gift-payment__methods label:has(input:disabled) {
+  opacity: 0.48;
+}
+
 .gift-payment small {
   color: var(--color-muted);
   font-size: 0.78rem;
@@ -674,6 +713,80 @@
 .lightbox img {
   max-height: 92vh;
   object-fit: contain;
+}
+
+.site-feedback,
+.pix-dialog {
+  width: min(440px, calc(100% - 1.25rem));
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.pix-dialog {
+  width: min(520px, calc(100% - 1.25rem));
+}
+
+.site-feedback::backdrop,
+.pix-dialog::backdrop {
+  background: rgba(16, 15, 13, 0.76);
+  backdrop-filter: blur(8px);
+}
+
+.site-feedback__panel,
+.pix-dialog__panel {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.3rem, 4vw, 2rem);
+  border: 1px solid rgba(78, 90, 66, 0.18);
+  background: var(--color-paper);
+  box-shadow: var(--shadow-soft);
+  text-align: center;
+}
+
+.site-feedback__panel h3,
+.pix-dialog__panel h3 {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+  line-height: 0.95;
+}
+
+.site-feedback__panel p,
+.pix-dialog__panel p {
+  margin: 0;
+}
+
+.pix-dialog__qr {
+  width: min(240px, 70vw);
+  aspect-ratio: 1 / 1;
+  justify-self: center;
+  border: 10px solid var(--color-paper);
+  background: white;
+  box-shadow: var(--shadow-soft);
+}
+
+.pix-dialog__panel label {
+  display: grid;
+  gap: 0.45rem;
+  text-align: left;
+}
+
+.pix-dialog__panel label span {
+  color: var(--color-olive);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pix-dialog__panel textarea {
+  width: 100%;
+  border: 1px solid rgba(78, 90, 66, 0.18);
+  background: rgba(255, 255, 255, 0.74);
+  padding: 0.85rem;
+  color: var(--color-ink);
+  resize: vertical;
 }
 
 .lightbox button {

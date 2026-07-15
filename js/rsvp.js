@@ -18,6 +18,7 @@ window.WeddingRsvp = {
     this.companionChoice = document.getElementById("companionChoice");
     this.companionNameField = document.getElementById("companionNameField");
     this.phone = this.form.elements.phone;
+    this.email = this.form.elements.email;
     this.submitButton = this.form.querySelector('button[type="submit"]');
 
     this.restoreDraft();
@@ -201,6 +202,8 @@ window.WeddingRsvp = {
     const valid = Boolean(
       data.guestId &&
       data.attendance &&
+      data.phoneDigits.length >= 10 &&
+      this.isValidEmail(data.email) &&
       (!needsCompanionChoice || data.bringCompanion) &&
       (!needsCompanionName || data.companionName)
     );
@@ -222,6 +225,18 @@ window.WeddingRsvp = {
       return;
     }
 
+    if (data.phoneDigits.length < 10) {
+      this.updateStatus("Informe um WhatsApp válido.");
+      this.phone.focus();
+      return;
+    }
+
+    if (!this.isValidEmail(data.email)) {
+      this.updateStatus("Informe um email válido.");
+      this.email.focus();
+      return;
+    }
+
     this.setSubmitting(true);
     this.updateStatus("Enviando sua confirmação...");
 
@@ -230,8 +245,18 @@ window.WeddingRsvp = {
       this.updateStatus(result.message || "Confirmação registrada. Obrigado!");
       window.WeddingCache.remove(window.WEDDING_CONFIG.cache.rsvpDraftKey);
       this.resetForm();
+      window.WeddingFeedback?.show({
+        eyebrow: "Confirmação",
+        title: data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
+        message: result.message || "Recebemos sua resposta. Obrigado por avisar."
+      });
     } catch (error) {
       this.updateStatus(error.message || "Não foi possível enviar agora. Tente novamente em instantes.");
+      window.WeddingFeedback?.show({
+        eyebrow: "Ops",
+        title: "Não foi possível enviar",
+        message: error.message || "Tente novamente em instantes."
+      });
     } finally {
       this.setSubmitting(false);
     }
@@ -319,6 +344,10 @@ window.WeddingRsvp = {
 
   onlyDigits(value) {
     return String(value || "").replace(/\D/g, "");
+  },
+
+  isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
   },
 
   escapeHtml(value) {

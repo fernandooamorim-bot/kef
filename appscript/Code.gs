@@ -267,6 +267,14 @@ function handleRsvp_(data) {
   }
 
   const phone = data.phone || guest.phone || "";
+  if (!phone || String(data.phoneDigits || phone).replace(/\D/g, "").length < 10) {
+    return jsonResponse(false, null, "Informe um WhatsApp válido.");
+  }
+
+  if (!data.email || String(data.email).indexOf("@") === -1) {
+    return jsonResponse(false, null, "Informe um email válido.");
+  }
+
   const whatsappLink = buildWhatsappLink_(data.phoneDigits || phone);
   const guestEmail = data.email || guest.email || "";
   const checkinToken = data.attendance === "confirmed" ? createCheckinToken_(guest.guest_id) : "";
@@ -363,8 +371,8 @@ function handleGiftIntent_(data) {
     giver_email: data.email || "",
     email: data.email || "",
     message: data.message || "",
-    status: data.paymentUrl ? "aguardando_pagamento" : "created",
-    provider: data.paymentUrl ? "pagbank" : "",
+    status: data.paymentMethod ? "aguardando_pagamento" : "created",
+    provider: data.paymentMethod === "pix" ? "pix" : data.paymentUrl ? "pagbank" : "",
     provider_payment_id: "",
     payment_url: data.paymentUrl || "",
     paid_at: "",
@@ -374,9 +382,9 @@ function handleGiftIntent_(data) {
 
   return jsonResponse(true, {
     orderId,
-    status: data.paymentUrl ? "aguardando_pagamento" : "created",
-    message: data.paymentUrl
-      ? "Registro salvo. Redirecionando para o pagamento..."
+    status: data.paymentMethod ? "aguardando_pagamento" : "created",
+    message: data.paymentMethod
+      ? "Registro salvo. Abrindo pagamento..."
       : "Presente e mensagem registrados com sucesso."
   });
 }

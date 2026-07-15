@@ -19,6 +19,13 @@ window.WeddingGifts = {
     this.title = document.getElementById("giftDialogTitle");
     this.description = document.getElementById("giftDialogDescription");
     this.amount = document.getElementById("giftDialogAmount");
+    this.paymentHelp = document.getElementById("giftPaymentHelp");
+    this.pixDialog = document.getElementById("pixDialog");
+    this.pixQrImage = document.getElementById("pixQrImage");
+    this.pixCopyPaste = document.getElementById("pixCopyPaste");
+    this.pixStatus = document.getElementById("pixStatus");
+    this.copyPixButton = document.getElementById("copyPixButton");
+    this.closePixButton = document.getElementById("closePixDialog");
   },
 
   normalizeGifts(gifts) {
@@ -91,6 +98,16 @@ window.WeddingGifts = {
       event.preventDefault();
       await this.submitGift();
     });
+
+    this.form.addEventListener("change", (event) => {
+      if (event.target.name === "paymentMethod") this.updatePaymentHelp();
+    });
+
+    this.copyPixButton?.addEventListener("click", () => this.copyPixCode());
+    this.closePixButton?.addEventListener("click", () => this.pixDialog.close());
+    this.pixDialog?.addEventListener("click", (event) => {
+      if (event.target === this.pixDialog) this.pixDialog.close();
+    });
   },
 
   openGift(gift) {
@@ -104,6 +121,10 @@ window.WeddingGifts = {
     this.title.textContent = gift.title;
     this.description.textContent = gift.description;
     this.amount.textContent = this.formatCurrency(gift.amount);
+    const pixOption = this.form.querySelector('[name="paymentMethod"][value="pix"]');
+    if (pixOption) pixOption.disabled = !this.hasPix();
+    this.setPaymentMethod(this.hasPix() ? "pix" : "card");
+    this.updatePaymentHelp();
     this.dialog.showModal();
   },
 
@@ -114,7 +135,12 @@ window.WeddingGifts = {
       return;
     }
 
-    if (!data.paymentUrl) {
+    if (data.paymentMethod === "pix" && !this.hasPix()) {
+      this.status.textContent = "O Pix direto ainda não está configurado.";
+      return;
+    }
+
+    if (data.paymentMethod === "card" && !data.paymentUrl) {
       this.status.textContent = "Este presente ainda não possui link de pagamento.";
       return;
     }
@@ -123,20 +149,81 @@ window.WeddingGifts = {
     try {
       const result = await window.WeddingApi.submitGiftIntent(data);
       this.status.textContent = result.message || "Registro salvo. Redirecionando para o pagamento...";
-      window.setTimeout(() => {
-        window.location.href = data.paymentUrl;
-      }, 550);
+      if (data.paymentMethod === "pix") {
+        window.setTimeout(() => this.showPixDialog(data), 350);
+      } else {
+        window.setTimeout(() => {
+          window.location.href = data.paymentUrl;
+        }, 550);
+      }
     } catch (error) {
       this.status.textContent = error.message || "Não foi possível registrar agora. Tente novamente em instantes.";
     }
   },
 
+  setPaymentMethod(method) {
+    const field = this.form.querySelector(`[name="paymentMethod"][value="${method}"]`);
+    if (field) field.checked = true;
+  },
+
+  readPaymentMethod() {
+    return this.form.querySelector('[name="paymentMethod"]:checked')?.value || "card";
+  },
+
+  updatePaymentHelp() {
+    if (!this.paymentHelp) return;
+    const method = this.readPaymentMethod();
+    if (method === "pix") {
+      this.paymentHelp.textContent = this.hasPix()
+        ? "Ao continuar, sua mensagem será registrada e abriremos o QR Code Pix para pagamento direto."
+        : "Pix direto ainda precisa do código copia e cola para ficar disponível.";
+      return;
+    }
+    this.paymentHelp.textContent = "Ao continuar, sua mensagem será registrada e abriremos o PagBank para pagamento por cartão, NuPay ou Pix.";
+  },
+
+  hasPix() {
+    return Boolean(this.getPixCode());
+  },
+
+  getPixCode() {
+    return String(window.WEDDING_CONFIG.payment?.pix?.copyPaste || "").trim();
+  },
+
+  showPixDialog(data) {
+    const pixCode = this.getPixCode();
+    if (!pixCode || !this.pixDialog) return;
+
+    this.dialog.close();
+    this.pixCopyPaste.value = pixCode;
+    this.pixQrImage.src = `https://quickchart.io/qr?size=320&margin=2&text=${encodeURIComponent(pixCode)}`;
+    this.pixQrImage.alt = `QR Code Pix para ${data.giftTitle}`;
+    this.pixStatus.textContent = `Valor sugerido: ${this.formatCurrency(data.amount)}.`;
+    this.pixDialog.showModal();
+  },
+
+  async copyPixCode() {
+    const pixCode = this.pixCopyPaste?.value || this.getPixCode();
+    if (!pixCode) return;
+
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      this.pixStatus.textContent = "Código Pix copiado.";
+    } catch (error) {
+      this.pixCopyPaste.focus();
+      this.pixCopyPaste.select();
+      this.pixStatus.textContent = "Selecione e copie o código Pix.";
+    }
+  },
+
   readForm() {
     const gift = this.selectedGift;
+    const paymentMethod = this.readPaymentMethod();
     return {
       giftId: gift.id,
       giftTitle: gift.title,
       amount: gift.amount,
+      paymentMethod,
       paymentUrl: gift.paymentUrl,
       name: this.form.elements.name.value.trim(),
       phone: this.form.elements.phone.value.trim(),

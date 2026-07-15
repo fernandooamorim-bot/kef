@@ -5,6 +5,12 @@ window.WEDDING_CONFIG = {
   heroImage: "_BQH1940.jpg",
   heroVideo: "assets/video/intro-casal-v2.mp4",
   appScriptUrl: "https://script.google.com/macros/s/AKfycbzYOTt7bXDOlIBGMTbZlycPShyCL1lJHB5BGJVPnEBWcvlB9kTvux8WDRJQ8kQ-SL-6cg/exec",
+  payment: {
+    pix: {
+      receiverName: "Krisna",
+      copyPaste: ""
+    }
+  },
   cache: {
     publicConfigKey: "kf_public_config_v1",
     publicConfigTtlMinutes: 30,

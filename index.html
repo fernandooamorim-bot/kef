@@ -21,7 +21,7 @@
     <link rel="preload" as="video" href="assets/video/intro-casal-v2.mp4" type="video/mp4">
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/layout.css?v=presentes-20260714e">
-    <link rel="stylesheet" href="css/components.css?v=pagbank-flow-20260715">
+    <link rel="stylesheet" href="css/components.css?v=feedback-payment-20260715">
   </head>
   <body>
     <div class="site-loader" id="siteLoader" role="status" aria-live="polite" aria-label="Carregando site">
@@ -211,13 +211,13 @@
               </label>
 
               <label>
-                <span>Telefone <small>opcional</small></span>
-                <input name="phone" autocomplete="tel" inputmode="tel" maxlength="15" placeholder="(00) 0000-0000">
+                <span>WhatsApp</span>
+                <input name="phone" autocomplete="tel" inputmode="tel" maxlength="15" placeholder="(00) 00000-0000" required>
               </label>
 
               <label>
-                <span>Email <small>opcional</small></span>
-                <input name="email" autocomplete="email" type="email">
+                <span>Email</span>
+                <input name="email" autocomplete="email" type="email" required>
               </label>
             </div>
 
@@ -261,7 +261,18 @@
           <strong id="giftDialogAmount"></strong>
           <div class="gift-payment">
             <span>Pagamento seguro</span>
-            <small>Ao continuar, sua mensagem será registrada e abriremos o PagBank para pagamento por Pix ou cartão.</small>
+            <fieldset class="gift-payment__methods">
+              <legend>Escolha como deseja pagar</legend>
+              <label>
+                <input type="radio" name="paymentMethod" value="pix">
+                <span>Pix direto</span>
+              </label>
+              <label>
+                <input type="radio" name="paymentMethod" value="card" checked>
+                <span>Cartão ou Pix pelo PagBank</span>
+              </label>
+            </fieldset>
+            <small id="giftPaymentHelp">Ao continuar, sua mensagem será registrada e abriremos o pagamento escolhido.</small>
           </div>
           <input type="hidden" name="giftId">
           <label>
@@ -286,13 +297,38 @@
       </form>
     </dialog>
 
-    <script src="js/config.js?v=pagbank-20260715"></script>
+    <dialog class="site-feedback" id="siteFeedbackDialog" aria-labelledby="siteFeedbackTitle">
+      <div class="site-feedback__panel">
+        <p class="eyebrow" id="siteFeedbackEyebrow">Aviso</p>
+        <h3 id="siteFeedbackTitle">Tudo certo</h3>
+        <p id="siteFeedbackMessage"></p>
+        <button class="button button--primary" type="button" id="siteFeedbackOk">OK</button>
+      </div>
+    </dialog>
+
+    <dialog class="pix-dialog" id="pixDialog" aria-labelledby="pixDialogTitle">
+      <div class="pix-dialog__panel">
+        <button class="gift-dialog__close" type="button" id="closePixDialog" aria-label="Fechar">×</button>
+        <p class="eyebrow">Pagamento por Pix</p>
+        <h3 id="pixDialogTitle">Use o Pix para concluir o presente</h3>
+        <p id="pixDialogMessage">Escaneie o QR Code ou copie o código abaixo no aplicativo do seu banco.</p>
+        <img class="pix-dialog__qr" id="pixQrImage" src="" alt="QR Code Pix">
+        <label>
+          <span>Pix copia e cola</span>
+          <textarea id="pixCopyPaste" rows="4" readonly></textarea>
+        </label>
+        <button class="button button--primary" type="button" id="copyPixButton">Copiar código Pix</button>
+        <p class="form-status" id="pixStatus" role="status"></p>
+      </div>
+    </dialog>
+
+    <script src="js/config.js?v=feedback-payment-20260715"></script>
     <script src="js/cache.js"></script>
     <script src="js/api.js"></script>
     <script src="js/countdown.js"></script>
     <script src="js/gallery.js"></script>
-    <script src="js/gifts.js?v=pagbank-flow-20260715"></script>
-    <script src="js/rsvp.js"></script>
-    <script src="js/app.js?v=presentes-20260714d"></script>
+    <script src="js/gifts.js?v=feedback-payment-20260715"></script>
+    <script src="js/rsvp.js?v=feedback-payment-20260715"></script>
+    <script src="js/app.js?v=feedback-payment-20260715"></script>
   </body>
 </html>
