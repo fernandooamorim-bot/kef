@@ -8,7 +8,7 @@ window.WEDDING_CONFIG = {
   payment: {
     pix: {
       receiverName: "Krisna",
-      copyPaste: ""
+      copyPaste: "00020101021126480014br.gov.bcb.pix0126krisna_andrade@hotmail.com5204000053039865802BR5923KRISNA SILVA DE ANDRADE6009SAO PAULO622905251KW1V75VTXSRAXJN9E00C8HZT63044AA5"
     }
   },
   cache: {
