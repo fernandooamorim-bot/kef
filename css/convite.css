@@ -1,0 +1,240 @@
+.invite-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(78, 90, 66, 0.9), rgba(40, 36, 31, 0.92)),
+    url("../assets/images/gallery/_BQH1940.jpg.jpg") center / cover;
+  color: var(--color-ink);
+}
+
+.invite-shell {
+  width: min(720px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 2rem);
+  display: grid;
+  align-items: center;
+}
+
+.invite-passport {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(78, 90, 66, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 250, 242, 0.98), rgba(248, 244, 236, 0.96)),
+    radial-gradient(circle at 18% 14%, rgba(178, 154, 104, 0.18), transparent 30%);
+  box-shadow: 0 24px 70px rgba(18, 17, 15, 0.28);
+}
+
+.invite-passport::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background-image:
+    linear-gradient(rgba(78, 90, 66, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(78, 90, 66, 0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+
+.invite-passport__stamp {
+  position: absolute;
+  top: 1.1rem;
+  right: -2.6rem;
+  z-index: 1;
+  border: 1px solid rgba(178, 154, 104, 0.72);
+  color: var(--color-gold);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  padding: 0.45rem 2.5rem;
+  text-transform: uppercase;
+  transform: rotate(34deg);
+}
+
+.invite-passport__header,
+.invite-content,
+.invite-loading {
+  position: relative;
+  z-index: 1;
+}
+
+.invite-passport__header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(78, 90, 66, 0.14);
+  background: var(--color-olive);
+  padding: clamp(1.1rem, 4vw, 1.6rem);
+  color: var(--color-paper);
+}
+
+.invite-passport__header img {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.invite-passport__header p,
+.invite-hero span,
+.invite-grid span {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.invite-passport__header p {
+  color: rgba(255, 250, 242, 0.72);
+}
+
+.invite-passport__header h1 {
+  margin: 0.2rem 0 0;
+  color: var(--color-paper);
+  font-size: clamp(2.6rem, 10vw, 4.8rem);
+}
+
+.invite-loading,
+.invite-content {
+  padding: clamp(1.1rem, 4vw, 1.6rem);
+}
+
+.invite-loading {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.invite-loading strong {
+  color: var(--color-olive);
+  font-size: 1.35rem;
+}
+
+.invite-loading span,
+.invite-status,
+.invite-hero p,
+.invite-qr p {
+  color: var(--color-muted);
+}
+
+.invite-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.invite-hero {
+  display: grid;
+  gap: 0.35rem;
+  border-bottom: 1px solid rgba(78, 90, 66, 0.16);
+  padding-bottom: 1rem;
+}
+
+.invite-hero span,
+.invite-grid span {
+  color: var(--color-gold);
+}
+
+.invite-hero strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 3.3rem);
+  line-height: 1;
+}
+
+.invite-hero p,
+.invite-qr p,
+.invite-status {
+  margin: 0;
+}
+
+.invite-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.invite-grid div {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid rgba(78, 90, 66, 0.14);
+  background: rgba(248, 244, 236, 0.62);
+  padding: 0.85rem;
+}
+
+.invite-grid strong {
+  color: var(--color-ink);
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.invite-qr {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgba(78, 90, 66, 0.14);
+  background: rgba(255, 250, 242, 0.72);
+  padding: 1rem;
+  text-align: center;
+}
+
+.invite-qr img {
+  width: min(250px, 74vw);
+  border: 10px solid #fff;
+}
+
+.invite-qr code {
+  max-width: 100%;
+  color: var(--color-olive);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.invite-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.invite-button {
+  min-height: 48px;
+  border: 0;
+  background: var(--color-olive);
+  color: var(--color-paper);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 0.85rem 1rem;
+  text-transform: uppercase;
+}
+
+.invite-button--ghost {
+  border: 1px solid rgba(78, 90, 66, 0.24);
+  background: transparent;
+  color: var(--color-olive);
+}
+
+.invite-button:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+@media (max-width: 540px) {
+  .invite-shell {
+    align-items: start;
+  }
+
+  .invite-passport__header {
+    align-items: flex-start;
+  }
+
+  .invite-passport__header img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .invite-grid,
+  .invite-actions {
+    grid-template-columns: 1fr;
+  }
+}

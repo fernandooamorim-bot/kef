@@ -23,6 +23,7 @@ const HEADERS = {
     "email",
     "token_checkin",
     "link_checkin",
+    "link_convite",
     "qr_code",
     "status_checkin",
     "checkin_realizado_em",
@@ -121,6 +122,8 @@ const HEADER_ALIASES = {
   token_checkin: "checkin_token",
   checkin_link: "checkin_link",
   link_checkin: "checkin_link",
+  invite_link: "invite_link",
+  link_convite: "invite_link",
   qr_code: "qr_code",
   status_checkin: "checkin_status",
   checkin_status: "checkin_status",
@@ -183,6 +186,10 @@ function doGet(e) {
 
     if (action === "guests") {
       return handleGuestSearch_(e.parameter.q || "");
+    }
+
+    if (action === "invite") {
+      return handleInvite_(e.parameter.t || e.parameter.token || "");
     }
 
     if (action !== "config") {
@@ -275,11 +282,16 @@ function handleRsvp_(data) {
     return jsonResponse(false, null, "Informe um email válido.");
   }
 
-  const whatsappLink = buildWhatsappLink_(data.phoneDigits || phone);
   const guestEmail = data.email || guest.email || "";
   const checkinToken = data.attendance === "confirmed" ? createCheckinToken_(guest.guest_id) : "";
   const checkinLink = checkinToken ? buildCheckinLink_(checkinToken) : "";
+  const inviteLink = checkinToken ? buildInviteLink_(checkinToken) : "";
   const qrCode = checkinLink ? buildQrCodeUrl_(checkinLink) : "";
+  const whatsappLink = buildWhatsappLink_(data.phoneDigits || phone, {
+    guestName: guest.name,
+    inviteLink: inviteLink,
+    attendance: data.attendance
+  });
   const emailResult = sendRsvpConfirmationEmail_(guest, {
     attendance: data.attendance,
     companionsConfirmed: companionsConfirmed,
@@ -287,6 +299,7 @@ function handleRsvp_(data) {
     email: guestEmail,
     checkinToken: checkinToken,
     checkinLink: checkinLink,
+    inviteLink: inviteLink,
     qrCode: qrCode
   });
 
@@ -306,6 +319,7 @@ function handleRsvp_(data) {
     email: guestEmail,
     checkin_token: checkinToken,
     checkin_link: checkinLink,
+    invite_link: inviteLink,
     qr_code: qrCode,
     checkin_status: checkinToken ? "pendente" : "",
     checkin_at: "",
@@ -318,6 +332,27 @@ function handleRsvp_(data) {
 
   return jsonResponse(true, {
     message: data.attendance === "confirmed" ? "Presença confirmada com sucesso." : "Resposta registrada com sucesso."
+  });
+}
+
+function handleInvite_(tokenValue) {
+  const token = extractCheckinToken_(tokenValue);
+  if (!token) {
+    return jsonResponse(false, null, "Convite não encontrado.");
+  }
+
+  const record = findRsvpByCheckinToken_(token);
+  if (!record || record.attendance !== "confirmed") {
+    return jsonResponse(false, null, "Este convite não está disponível.");
+  }
+
+  const latest = findLatestConfirmedRsvpByGuestId_(record.guest_id);
+  if (latest && latest.checkin_token !== record.checkin_token) {
+    return jsonResponse(false, null, "Este convite foi substituído por uma confirmação mais recente.");
+  }
+
+  return jsonResponse(true, {
+    invite: publicInvite_(record)
   });
 }
 
@@ -667,6 +702,30 @@ function publicCheckinGuest_(record) {
   };
 }
 
+function publicInvite_(record) {
+  const checkinLink = record.checkin_link || buildCheckinLink_(record.checkin_token);
+  const inviteLink = record.invite_link || buildInviteLink_(record.checkin_token);
+  return {
+    token: record.checkin_token || "",
+    name: record.guest_name || "",
+    attendance: record.attendance || "",
+    companionsConfirmed: Number(record.companions_confirmed || 0),
+    companionName: record.companion_name || "",
+    checkinStatus: record.checkin_status || (record.checkin_at ? "validado" : "pendente"),
+    checkinAt: record.checkin_at || "",
+    checkinLink: checkinLink,
+    inviteLink: inviteLink,
+    qrCode: record.qr_code || buildQrCodeUrl_(checkinLink),
+    event: {
+      couple: "Krisna & Fernando",
+      date: "29 de outubro de 2026",
+      time: "15h30",
+      venue: "Buffet La Maison",
+      address: "Av. Eng. Luiz Vieira, 555 - Papicu"
+    }
+  };
+}
+
 function isEnabled_(value) {
   if (value === undefined || value === null || value === "") return true;
   return String(value).toLowerCase() !== "false" && String(value).toUpperCase() !== "FALSE" && String(value).toLowerCase() !== "não";
@@ -708,6 +767,11 @@ function buildCheckinLink_(token) {
   return domain + "checkin.html?t=" + encodeURIComponent(token);
 }
 
+function buildInviteLink_(token) {
+  const domain = String(readKeyValueSheet_(SHEETS.CONFIG).domain || "https://krisnaefernando.com/").replace(/\/?$/, "/");
+  return domain + "convite.html?t=" + encodeURIComponent(token);
+}
+
 function buildQrCodeUrl_(value) {
   return "https://quickchart.io/qr?size=260&margin=2&text=" + encodeURIComponent(value);
 }
@@ -720,13 +784,26 @@ function extractCheckinToken_(value) {
   return raw.replace(/^.*(CHK-[A-Z0-9]+-[A-Z0-9]+).*$/i, "$1").trim().toUpperCase();
 }
 
-function buildWhatsappLink_(phone) {
+function buildWhatsappLink_(phone, data) {
   let digits = String(phone || "").replace(/\D/g, "");
   if (!digits) return "";
   if ((digits.length === 10 || digits.length === 11) && digits.indexOf("55") !== 0) {
     digits = "55" + digits;
   }
-  return "https://wa.me/" + digits;
+  const inviteLink = data && data.attendance === "confirmed" ? String(data.inviteLink || "") : "";
+  if (!inviteLink) return "https://wa.me/" + digits;
+
+  const firstName = String(data.guestName || "").trim().split(/\s+/)[0] || "Olá";
+  const message = [
+    "Olá, " + firstName + "! Sua presença no casamento de Krisna & Fernando foi confirmada.",
+    "",
+    "Acesse seu convite digital com QR Code:",
+    inviteLink,
+    "",
+    "No dia do evento, apresente este QR Code na recepção para agilizar sua entrada."
+  ].join("\n");
+
+  return "https://wa.me/" + digits + "?text=" + encodeURIComponent(message);
 }
 
 function sendRsvpConfirmationEmail_(guest, data) {

@@ -54,6 +54,46 @@ window.WeddingApi = {
     return payload.data?.guests || [];
   },
 
+  async getInvite(token) {
+    const config = window.WEDDING_CONFIG;
+    const cleanToken = String(token || "").trim();
+    if (!cleanToken) {
+      throw new Error("Convite não encontrado.");
+    }
+
+    if (!config.appScriptUrl) {
+      return {
+        token: cleanToken,
+        name: "Convidado Exemplo",
+        attendance: "confirmed",
+        companionsConfirmed: 1,
+        companionName: "Acompanhante",
+        checkinStatus: "pendente",
+        checkinLink: `${config.domain}checkin.html?t=${encodeURIComponent(cleanToken)}`,
+        inviteLink: `${config.domain}convite.html?t=${encodeURIComponent(cleanToken)}`,
+        qrCode: `https://quickchart.io/qr?size=260&margin=2&text=${encodeURIComponent(`${config.domain}checkin.html?t=${cleanToken}`)}`,
+        event: {
+          couple: config.couple,
+          date: "29 de outubro de 2026",
+          time: "15h30",
+          venue: "Buffet La Maison",
+          address: "Av. Eng. Luiz Vieira, 555 - Papicu"
+        }
+      };
+    }
+
+    const url = `${config.appScriptUrl}?action=invite&t=${encodeURIComponent(cleanToken)}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || "Não foi possível carregar este convite.");
+    }
+    return payload.data?.invite;
+  },
+
   async submitRsvp(data) {
     const config = window.WEDDING_CONFIG;
 

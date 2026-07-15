@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Convite Digital | Krisna & Fernando</title>
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#4e5a42">
+    <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/convite.css">
+  </head>
+  <body class="invite-page">
+    <main class="invite-shell">
+      <section class="invite-passport" id="inviteCard" aria-live="polite">
+        <div class="invite-passport__stamp">Convite digital</div>
+        <div class="invite-passport__header">
+          <img src="assets/brand/monograma-small.png" alt="Monograma Krisna e Fernando">
+          <div>
+            <p>Wedding passport</p>
+            <h1>Krisna & Fernando</h1>
+          </div>
+        </div>
+
+        <div class="invite-loading" id="inviteLoading">
+          <strong>Carregando convite...</strong>
+          <span>Estamos preparando seu QR Code de entrada.</span>
+        </div>
+
+        <div class="invite-content" id="inviteContent" hidden>
+          <div class="invite-hero">
+            <span>Passaporte de entrada</span>
+            <strong id="inviteName">Convidado</strong>
+            <p id="inviteCompanion">Acompanhante: não informado</p>
+          </div>
+
+          <div class="invite-grid">
+            <div>
+              <span>Data</span>
+              <strong id="inviteDate">29 de outubro de 2026</strong>
+            </div>
+            <div>
+              <span>Horário</span>
+              <strong id="inviteTime">15h30</strong>
+            </div>
+            <div>
+              <span>Local</span>
+              <strong id="inviteVenue">Buffet La Maison</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong id="inviteStatus">Presença confirmada</strong>
+            </div>
+          </div>
+
+          <div class="invite-qr">
+            <img id="inviteQr" alt="QR Code de entrada">
+            <p>Apresente este QR Code na recepção do evento.</p>
+            <code id="inviteCode">CHK-...</code>
+          </div>
+
+          <div class="invite-actions">
+            <button class="invite-button" type="button" id="saveInviteButton">Salvar convite</button>
+            <button class="invite-button invite-button--ghost" type="button" id="copyInviteButton">Copiar link</button>
+          </div>
+          <p class="invite-status" id="inviteStatusMessage" role="status"></p>
+        </div>
+      </section>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/cache.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/convite.js"></script>
+  </body>
+</html>
