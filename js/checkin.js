@@ -384,7 +384,7 @@ window.WeddingCheckin = {
     this.resultDetails.innerHTML = "";
 
     const details = [];
-    if (guest.companionsConfirmed !== undefined) details.push(["Acompanhante", this.describeCompanion(guest)]);
+    if (guest.companionsConfirmed !== undefined) details.push(["Acompanhante", this.describeCompanion(guest, false)]);
     if (guest.checkinAt) details.push(["Validado em", this.formatDate(guest.checkinAt)]);
     if (guest.checkinBy) details.push(["Operador", guest.checkinBy]);
 
@@ -397,13 +397,19 @@ window.WeddingCheckin = {
 
   describeGuest(guest) {
     const status = guest.checkinStatus === "validado" ? "já validado" : "pendente";
-    return `${this.describeCompanion(guest)} · ${status}`;
+    return `${this.describeCompanion(guest, true)} · ${status}`;
   },
 
-  describeCompanion(guest) {
+  describeCompanion(guest, includeLabel = true) {
     const count = Number(guest.companionsConfirmed || 0);
     if (!count) return "sem acompanhante";
-    return guest.companionName ? `acompanhante: ${guest.companionName}` : "com acompanhante";
+    const companionName = this.cleanCompanionName(guest.companionName);
+    if (!companionName) return "com acompanhante";
+    return includeLabel ? `acompanhante: ${companionName}` : companionName;
+  },
+
+  cleanCompanionName(value) {
+    return String(value || "").replace(/^acompanhante\s*:\s*/i, "").trim();
   },
 
   formatDate(value) {
