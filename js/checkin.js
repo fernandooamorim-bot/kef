@@ -14,6 +14,7 @@ window.WeddingCheckin = {
     this.cacheElements();
     this.bindEvents();
     this.restoreSession();
+    this.registerServiceWorker();
     const token = new URLSearchParams(window.location.search).get("t");
     if (token) {
       this.pendingToken = token;
@@ -293,9 +294,15 @@ window.WeddingCheckin = {
     window.clearTimeout(this.resetTimer);
     this.resetTimer = window.setTimeout(() => {
       if (!this.scanning) return;
-      this.showResult("idle", "Pronto para validar", "Aponte a câmera para o próximo QR Code", "A validação aparecerá aqui em tempo real.");
-      this.setScannerSignal("reading", "Câmera ativa. Aponte para o QR Code.");
+      this.setScannerSignal("reading", "Pronto para o próximo QR Code.");
     }, 3200);
+  },
+
+  registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw-checkin.js").catch(() => {});
+    });
   },
 
   setScannerSignal(mode, text) {
