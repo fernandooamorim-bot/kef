@@ -239,12 +239,17 @@ window.WeddingRsvp = {
 
     this.setSubmitting(true);
     this.updateStatus("Enviando sua confirmação...");
+    window.WeddingProcessing?.show({
+      title: "Enviando confirmação",
+      message: "Estamos registrando sua resposta."
+    });
 
     try {
       const result = await window.WeddingApi.submitRsvp(data);
       this.updateStatus(result.message || "Confirmação registrada. Obrigado!");
       window.WeddingCache.remove(window.WEDDING_CONFIG.cache.rsvpDraftKey);
       this.resetForm();
+      window.WeddingProcessing?.close();
       window.WeddingFeedback?.show({
         eyebrow: "Confirmação",
         title: data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
@@ -252,12 +257,14 @@ window.WeddingRsvp = {
       });
     } catch (error) {
       this.updateStatus(error.message || "Não foi possível enviar agora. Tente novamente em instantes.");
+      window.WeddingProcessing?.close();
       window.WeddingFeedback?.show({
         eyebrow: "Ops",
         title: "Não foi possível enviar",
         message: error.message || "Tente novamente em instantes."
       });
     } finally {
+      window.WeddingProcessing?.close();
       this.setSubmitting(false);
     }
   },

@@ -336,6 +336,7 @@
   background: rgba(255, 255, 255, 0.74);
   padding: 0.9rem 1rem;
   color: var(--color-ink);
+  font-size: 16px;
   outline: none;
   resize: vertical;
 }
@@ -592,6 +593,8 @@
   grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1fr);
   max-height: 92vh;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid rgba(78, 90, 66, 0.18);
   background: var(--color-paper);
   box-shadow: var(--shadow-soft);
@@ -716,6 +719,7 @@
 }
 
 .site-feedback,
+.site-processing,
 .pix-dialog {
   width: min(440px, calc(100% - 1.25rem));
   padding: 0;
@@ -728,12 +732,14 @@
 }
 
 .site-feedback::backdrop,
+.site-processing::backdrop,
 .pix-dialog::backdrop {
   background: rgba(16, 15, 13, 0.76);
   backdrop-filter: blur(8px);
 }
 
 .site-feedback__panel,
+.site-processing__panel,
 .pix-dialog__panel {
   position: relative;
   display: grid;
@@ -746,6 +752,7 @@
 }
 
 .site-feedback__panel h3,
+.site-processing__panel h3,
 .pix-dialog__panel h3 {
   margin: 0;
   font-size: clamp(2rem, 8vw, 3rem);
@@ -753,8 +760,19 @@
 }
 
 .site-feedback__panel p,
+.site-processing__panel p,
 .pix-dialog__panel p {
   margin: 0;
+}
+
+.site-processing__spinner {
+  width: 3rem;
+  height: 3rem;
+  justify-self: center;
+  border: 4px solid rgba(78, 90, 66, 0.18);
+  border-top-color: var(--color-olive);
+  border-radius: 999px;
+  animation: spin 780ms linear infinite;
 }
 
 .pix-dialog__qr {
@@ -786,6 +804,7 @@
   background: rgba(255, 255, 255, 0.74);
   padding: 0.85rem;
   color: var(--color-ink);
+  font-size: 16px;
   resize: vertical;
 }
 

@@ -23,6 +23,7 @@ window.WeddingFeedback = {
     this.eyebrow.textContent = eyebrow;
     this.title.textContent = title;
     this.message.textContent = message;
+    window.WeddingModalLock?.lock();
     this.dialog.showModal();
     this.okButton?.focus();
   },
@@ -32,10 +33,63 @@ window.WeddingFeedback = {
   }
 };
 
+window.WeddingProcessing = {
+  dialog: null,
+
+  init() {
+    this.dialog = document.getElementById("siteProcessingDialog");
+    this.title = document.getElementById("siteProcessingTitle");
+    this.message = document.getElementById("siteProcessingMessage");
+  },
+
+  show({ title = "Processando", message = "Aguarde um instante." } = {}) {
+    if (!this.dialog) return;
+    this.title.textContent = title;
+    this.message.textContent = message;
+    window.WeddingModalLock?.lock();
+    if (!this.dialog.open) this.dialog.showModal();
+  },
+
+  close() {
+    if (this.dialog?.open) this.dialog.close();
+  }
+};
+
+window.WeddingModalLock = {
+  scrollY: 0,
+
+  init() {
+    document.querySelectorAll("dialog").forEach((dialog) => {
+      dialog.addEventListener("close", () => window.setTimeout(() => this.sync(), 0));
+    });
+  },
+
+  lock() {
+    if (document.body.classList.contains("modal-lock")) return;
+    this.scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.top = `-${this.scrollY}px`;
+    document.body.classList.add("modal-lock");
+  },
+
+  sync() {
+    const hasOpenDialog = Array.from(document.querySelectorAll("dialog")).some((dialog) => dialog.open);
+    if (!hasOpenDialog) this.unlock();
+  },
+
+  unlock() {
+    if (!document.body.classList.contains("modal-lock")) return;
+    document.body.classList.remove("modal-lock");
+    document.body.style.top = "";
+    window.scrollTo(0, this.scrollY);
+  }
+};
+
 const app = {
   init() {
     document.body.classList.add("loading-lock");
     window.WeddingFeedback.init();
+    window.WeddingProcessing.init();
+    window.WeddingModalLock.init();
     this.initLoader();
     this.initHeroVideo();
     this.initNav();

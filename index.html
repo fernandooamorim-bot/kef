@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>Krisna & Fernando | 29 de outubro de 2026</title>
     <meta name="description" content="Site oficial do casamento de Krisna e Fernando. Confirme sua presença, veja os detalhes da cerimônia e acompanhe nossa contagem regressiva.">
     <meta name="theme-color" content="#f8f4ec">
@@ -19,9 +19,9 @@
     <link rel="preload" as="image" href="assets/images/gallery/IMG_1686.JPG.jpg">
     <link rel="preload" as="image" href="assets/images/gallery/_BQH1940.jpg.jpg">
     <link rel="preload" as="video" href="assets/video/intro-casal-v2.mp4" type="video/mp4">
-    <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/layout.css?v=presentes-20260714e">
-    <link rel="stylesheet" href="css/components.css?v=feedback-payment-20260715">
+    <link rel="stylesheet" href="css/base.css?v=ux-cache-20260715">
+    <link rel="stylesheet" href="css/layout.css?v=ux-cache-20260715">
+    <link rel="stylesheet" href="css/components.css?v=ux-cache-20260715">
   </head>
   <body>
     <div class="site-loader" id="siteLoader" role="status" aria-live="polite" aria-label="Carregando site">
@@ -269,7 +269,7 @@
               </label>
               <label>
                 <input type="radio" name="paymentMethod" value="card" checked>
-                <span>Cartão ou Pix pelo PagBank</span>
+                <span>Cartão de crédito</span>
               </label>
             </fieldset>
             <small id="giftPaymentHelp">Ao continuar, sua mensagem será registrada e abriremos o pagamento escolhido.</small>
@@ -306,6 +306,14 @@
       </div>
     </dialog>
 
+    <dialog class="site-processing" id="siteProcessingDialog" aria-labelledby="siteProcessingTitle">
+      <div class="site-processing__panel">
+        <span class="site-processing__spinner" aria-hidden="true"></span>
+        <h3 id="siteProcessingTitle">Processando</h3>
+        <p id="siteProcessingMessage">Aguarde um instante.</p>
+      </div>
+    </dialog>
+
     <dialog class="pix-dialog" id="pixDialog" aria-labelledby="pixDialogTitle">
       <div class="pix-dialog__panel">
         <button class="gift-dialog__close" type="button" id="closePixDialog" aria-label="Fechar">×</button>
@@ -322,13 +330,13 @@
       </div>
     </dialog>
 
-    <script src="js/config.js?v=feedback-payment-20260715"></script>
-    <script src="js/cache.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/countdown.js"></script>
-    <script src="js/gallery.js"></script>
-    <script src="js/gifts.js?v=feedback-payment-20260715"></script>
-    <script src="js/rsvp.js?v=feedback-payment-20260715"></script>
-    <script src="js/app.js?v=feedback-payment-20260715"></script>
+    <script src="js/config.js?v=ux-cache-20260715"></script>
+    <script src="js/cache.js?v=ux-cache-20260715"></script>
+    <script src="js/api.js?v=ux-cache-20260715"></script>
+    <script src="js/countdown.js?v=ux-cache-20260715"></script>
+    <script src="js/gallery.js?v=ux-cache-20260715"></script>
+    <script src="js/gifts.js?v=ux-cache-20260715"></script>
+    <script src="js/rsvp.js?v=ux-cache-20260715"></script>
+    <script src="js/app.js?v=ux-cache-20260715"></script>
   </body>
 </html>

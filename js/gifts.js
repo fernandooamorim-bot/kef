@@ -20,6 +20,7 @@ window.WeddingGifts = {
     this.description = document.getElementById("giftDialogDescription");
     this.amount = document.getElementById("giftDialogAmount");
     this.paymentHelp = document.getElementById("giftPaymentHelp");
+    this.submitButton = this.form?.querySelector('button[type="submit"]');
     this.pixDialog = document.getElementById("pixDialog");
     this.pixQrImage = document.getElementById("pixQrImage");
     this.pixCopyPaste = document.getElementById("pixCopyPaste");
@@ -93,6 +94,9 @@ window.WeddingGifts = {
     this.dialog.addEventListener("click", (event) => {
       if (event.target === this.dialog) this.dialog.close();
     });
+    this.dialog.addEventListener("close", () => {
+      if (!this.pixDialog?.open) window.WeddingModalLock?.sync();
+    });
 
     this.form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -125,6 +129,7 @@ window.WeddingGifts = {
     if (pixOption) pixOption.disabled = !this.hasPix();
     this.setPaymentMethod(this.hasPix() ? "pix" : "card");
     this.updatePaymentHelp();
+    window.WeddingModalLock?.lock();
     this.dialog.showModal();
   },
 
@@ -145,19 +150,32 @@ window.WeddingGifts = {
       return;
     }
 
+    this.setSubmitting(true);
     this.status.textContent = "Registrando sua mensagem...";
+    window.WeddingProcessing?.show({
+      title: "Registrando presente",
+      message: "Estamos salvando sua mensagem antes do pagamento."
+    });
     try {
       const result = await window.WeddingApi.submitGiftIntent(data);
       this.status.textContent = result.message || "Registro salvo. Redirecionando para o pagamento...";
       if (data.paymentMethod === "pix") {
-        window.setTimeout(() => this.showPixDialog(data), 350);
+        window.WeddingProcessing?.close();
+        window.setTimeout(() => this.showPixDialog(data), 250);
       } else {
+        window.WeddingProcessing?.show({
+          title: "Abrindo pagamento",
+          message: "Vamos encaminhar você para o pagamento com cartão."
+        });
         window.setTimeout(() => {
           window.location.href = data.paymentUrl;
         }, 550);
       }
     } catch (error) {
+      window.WeddingProcessing?.close();
       this.status.textContent = error.message || "Não foi possível registrar agora. Tente novamente em instantes.";
+    } finally {
+      this.setSubmitting(false);
     }
   },
 
@@ -179,7 +197,7 @@ window.WeddingGifts = {
         : "Pix direto ainda precisa do código copia e cola para ficar disponível.";
       return;
     }
-    this.paymentHelp.textContent = "Ao continuar, sua mensagem será registrada e abriremos o PagBank para pagamento por cartão, NuPay ou Pix.";
+    this.paymentHelp.textContent = "Ao continuar, sua mensagem será registrada e abriremos o pagamento por cartão de crédito.";
   },
 
   hasPix() {
@@ -195,11 +213,19 @@ window.WeddingGifts = {
     if (!pixCode || !this.pixDialog) return;
 
     this.dialog.close();
+    window.WeddingModalLock?.lock();
     this.pixCopyPaste.value = pixCode;
     this.pixQrImage.src = `https://quickchart.io/qr?size=320&margin=2&text=${encodeURIComponent(pixCode)}`;
     this.pixQrImage.alt = `QR Code Pix para ${data.giftTitle}`;
     this.pixStatus.textContent = `Valor sugerido: ${this.formatCurrency(data.amount)}.`;
     this.pixDialog.showModal();
+  },
+
+  setSubmitting(isSubmitting) {
+    if (!this.submitButton) return;
+    this.submitButton.classList.toggle("is-loading", isSubmitting);
+    this.submitButton.disabled = isSubmitting;
+    this.submitButton.textContent = isSubmitting ? "Registrando..." : "Registrar e pagar presente";
   },
 
   async copyPixCode() {
