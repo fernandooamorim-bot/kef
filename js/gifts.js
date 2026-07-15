@@ -19,6 +19,7 @@ window.WeddingGifts = {
     this.title = document.getElementById("giftDialogTitle");
     this.description = document.getElementById("giftDialogDescription");
     this.amount = document.getElementById("giftDialogAmount");
+    this.cardPaymentLink = document.getElementById("giftCardPaymentLink");
   },
 
   normalizeGifts(gifts) {
@@ -30,6 +31,7 @@ window.WeddingGifts = {
         description: gift.description || "",
         image: gift.image || window.WEDDING_CONFIG.defaultGiftImage,
         imagePosition: gift.image_position || gift.imagePosition || "center center",
+        paymentUrl: gift.payment_url || gift.paymentUrl || "",
         amount: Number(gift.amount || 0),
         order: Number(gift.sort_order || 999)
       }))
@@ -103,6 +105,10 @@ window.WeddingGifts = {
     this.title.textContent = gift.title;
     this.description.textContent = gift.description;
     this.amount.textContent = this.formatCurrency(gift.amount);
+    if (this.cardPaymentLink) {
+      this.cardPaymentLink.href = gift.paymentUrl || "#";
+      this.cardPaymentLink.hidden = !gift.paymentUrl;
+    }
     this.dialog.showModal();
   },
 
@@ -129,6 +135,7 @@ window.WeddingGifts = {
       giftId: gift.id,
       giftTitle: gift.title,
       amount: gift.amount,
+      paymentUrl: gift.paymentUrl,
       name: this.form.elements.name.value.trim(),
       phone: this.form.elements.phone.value.trim(),
       email: this.form.elements.email.value.trim(),

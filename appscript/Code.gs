@@ -364,9 +364,9 @@ function handleGiftIntent_(data) {
     email: data.email || "",
     message: data.message || "",
     status: "created",
-    provider: "",
+    provider: data.paymentUrl ? "pagbank" : "",
     provider_payment_id: "",
-    payment_url: "",
+    payment_url: data.paymentUrl || "",
     paid_at: "",
     source: data.source || "site",
     userAgent: data.userAgent || ""

@@ -632,6 +632,28 @@
   line-height: 1;
 }
 
+.gift-payment {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid rgba(78, 90, 66, 0.14);
+  background: rgba(248, 244, 236, 0.62);
+}
+
+.gift-payment > span {
+  color: var(--color-gold);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.gift-payment small {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .lightbox {
   max-width: min(92vw, 1080px);
   max-height: 92vh;
