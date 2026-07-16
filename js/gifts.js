@@ -222,10 +222,14 @@ window.WeddingGifts = {
     window.WeddingModalLock?.lock();
     this.pixCopyPaste.value = pixCode;
     this.pixQrImage.hidden = false;
-    this.pixQrImage.src = `https://quickchart.io/qr?size=320&margin=2&text=${encodeURIComponent(pixCode)}`;
+    this.pixQrImage.src = this.getPixQrImage() || `https://quickchart.io/qr?size=320&margin=2&text=${encodeURIComponent(pixCode)}`;
     this.pixQrImage.alt = `QR Code Pix para ${data.giftTitle}`;
     this.pixStatus.textContent = `Valor sugerido: ${this.formatCurrency(data.amount)}.`;
     this.pixDialog.showModal();
+  },
+
+  getPixQrImage() {
+    return String(window.WEDDING_CONFIG.payment?.pix?.qrImage || "").trim();
   },
 
   setSubmitting(isSubmitting) {

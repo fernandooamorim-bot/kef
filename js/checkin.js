@@ -9,6 +9,8 @@ window.WeddingCheckin = {
   resetTimer: null,
   audioContext: null,
   history: [],
+  sessionKey: "kf_checkin_operator",
+  sessionTtlMs: 12 * 60 * 60 * 1000,
 
   init() {
     this.cacheElements();
@@ -87,7 +89,7 @@ window.WeddingCheckin = {
 
   logout() {
     this.stopScanner();
-    sessionStorage.removeItem("kf_checkin_operator");
+    this.clearSession();
     this.credentials = null;
     this.app.hidden = true;
     this.loginPanel.hidden = false;
@@ -96,19 +98,36 @@ window.WeddingCheckin = {
 
   readSession() {
     try {
-      return JSON.parse(sessionStorage.getItem("kf_checkin_operator") || "null");
+      const saved = JSON.parse(localStorage.getItem(this.sessionKey) || sessionStorage.getItem(this.sessionKey) || "null");
+      if (!saved) return null;
+      if (!saved.expiresAt || Date.now() > saved.expiresAt) {
+        this.clearSession();
+        return null;
+      }
+      return saved.credentials || null;
     } catch (error) {
+      this.clearSession();
       return null;
     }
   },
 
   writeSession(value) {
     try {
-      sessionStorage.setItem("kf_checkin_operator", JSON.stringify(value));
+      const payload = {
+        credentials: value,
+        expiresAt: Date.now() + this.sessionTtlMs
+      };
+      localStorage.setItem(this.sessionKey, JSON.stringify(payload));
+      sessionStorage.setItem(this.sessionKey, JSON.stringify(payload));
     } catch (error) {
       return false;
     }
     return true;
+  },
+
+  clearSession() {
+    localStorage.removeItem(this.sessionKey);
+    sessionStorage.removeItem(this.sessionKey);
   },
 
   showApp(name) {
@@ -185,7 +204,7 @@ window.WeddingCheckin = {
     this.lastToken = value;
     this.lastReadAt = now;
     this.readLockedUntil = now + 3200;
-    this.setScannerSignal("reading", "QR Code lido. Validando...");
+    this.setScannerSignal("validating", "QR Code lido. Validando convite...");
     this.playFeedback("read");
     this.validateToken(value);
   },
@@ -307,7 +326,7 @@ window.WeddingCheckin = {
 
   setScannerSignal(mode, text) {
     if (!this.scannerPanel || !this.scannerSignal) return;
-    this.scannerPanel.classList.remove("is-reading", "is-valid", "is-warning", "is-error");
+    this.scannerPanel.classList.remove("is-reading", "is-validating", "is-valid", "is-warning", "is-error");
     if (mode) this.scannerPanel.classList.add(`is-${mode}`);
     this.scannerSignal.textContent = text || "";
   },
