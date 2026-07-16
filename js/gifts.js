@@ -68,7 +68,6 @@ window.WeddingGifts = {
       article.innerHTML = `
         <img class="gift-card__image" src="${gift.image}" alt="" loading="lazy" decoding="async">
         <div class="gift-card__body">
-          <span>Presente simbólico</span>
           <h3>${this.escape(gift.title)}</h3>
           <p>${this.escape(gift.description)}</p>
           <strong>${this.formatCurrency(gift.amount)}</strong>
@@ -108,6 +107,13 @@ window.WeddingGifts = {
     });
 
     this.copyPixButton?.addEventListener("click", () => this.copyPixCode());
+    this.pixQrImage?.addEventListener("load", () => {
+      this.pixQrImage.hidden = false;
+    });
+    this.pixQrImage?.addEventListener("error", () => {
+      this.pixQrImage.hidden = true;
+      this.pixStatus.textContent = "Não foi possível carregar o QR Code agora. Use o Pix copia e cola abaixo.";
+    });
     this.closePixButton?.addEventListener("click", () => this.pixDialog.close());
     this.pixDialog?.addEventListener("click", (event) => {
       if (event.target === this.pixDialog) this.pixDialog.close();
@@ -215,6 +221,7 @@ window.WeddingGifts = {
     this.dialog.close();
     window.WeddingModalLock?.lock();
     this.pixCopyPaste.value = pixCode;
+    this.pixQrImage.hidden = false;
     this.pixQrImage.src = `https://quickchart.io/qr?size=320&margin=2&text=${encodeURIComponent(pixCode)}`;
     this.pixQrImage.alt = `QR Code Pix para ${data.giftTitle}`;
     this.pixStatus.textContent = `Valor sugerido: ${this.formatCurrency(data.amount)}.`;
