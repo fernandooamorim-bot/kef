@@ -42,9 +42,10 @@
   min-width: 0;
   text-decoration: none;
   color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 600;
+  font-family: var(--font-hero);
+  font-size: 2.15rem;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .brand span {
@@ -261,7 +262,7 @@
 
   .brand {
     gap: 0.6rem;
-    font-size: 1.18rem;
+    font-size: 1.95rem;
   }
 
   .brand img {
@@ -408,7 +409,7 @@
 
   .brand {
     gap: 0.55rem;
-    font-size: 1rem;
+    font-size: 1.72rem;
   }
 
   .brand img {
