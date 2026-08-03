@@ -10,6 +10,8 @@ const SHEETS = {
   MENSAGENS: "MENSAGENS"
 };
 
+const SPREADSHEET_ID = "1YxiFGWAyUUVGzD13LEjYytLPsogIQ54H2VpQjkVJybY";
+
 const HEADERS = {
   RSVP: [
     "data_hora",
@@ -242,13 +244,22 @@ function doPost(e) {
 function testarAutorizacaoEmail() {
   ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, [
     "https://www.googleapis.com/auth/script.send_mail",
-    "https://www.googleapis.com/auth/spreadsheets.currentonly"
+    "https://www.googleapis.com/auth/spreadsheets"
   ]);
 
-  const spreadsheetName = SpreadsheetApp.getActive().getName();
+  const spreadsheetName = getSpreadsheet_().getName();
   const quota = MailApp.getRemainingDailyQuota();
   Logger.log("Autorização concluída para a planilha: " + spreadsheetName);
   Logger.log("Cota diária de email restante: " + quota);
+}
+
+function testarAutorizacaoPlanilha() {
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, [
+    "https://www.googleapis.com/auth/spreadsheets"
+  ]);
+
+  const spreadsheetName = getSpreadsheet_().getName();
+  Logger.log("Autorização concluída para a planilha: " + spreadsheetName);
 }
 
 function handleRsvp_(data) {
@@ -530,8 +541,12 @@ function handleCheckinSearch_(data) {
   return jsonResponse(true, { guests: guests });
 }
 
+function getSpreadsheet_() {
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
 function readKeyValueSheet_(name) {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(name);
+  const sheet = getSpreadsheet_().getSheetByName(name);
   if (!sheet) return {};
   const values = sheet.getDataRange().getValues();
   if (values.length > 1 && canonicalHeader_(values[0][0]) === "key") values.shift();
@@ -593,7 +608,7 @@ function formatDateLabel_(date) {
 }
 
 function readTableSheet_(name) {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(name);
+  const sheet = getSpreadsheet_().getSheetByName(name);
   if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
@@ -616,7 +631,7 @@ function findGuestById_(guestId) {
 }
 
 function getOrCreateSheet_(name, headers) {
-  const spreadsheet = SpreadsheetApp.getActive();
+  const spreadsheet = getSpreadsheet_();
   let sheet = spreadsheet.getSheetByName(name);
   if (!sheet) sheet = spreadsheet.insertSheet(name);
   if (sheet.getLastRow() === 0) sheet.appendRow(headers);
@@ -686,7 +701,7 @@ function validateOperator_(data) {
 }
 
 function readRsvpRecords_() {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(SHEETS.RSVP);
+  const sheet = getSpreadsheet_().getSheetByName(SHEETS.RSVP);
   if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];

@@ -20,13 +20,17 @@ Crie uma planilha com estas abas:
 
 1. Na planilha, abra `Extensoes > Apps Script`.
 2. Cole o conteudo de `Code.gs`.
-3. Salve o projeto.
-4. Clique em `Implantar > Nova implantacao`.
-5. Tipo: `App da Web`.
-6. Executar como: `Eu`.
-7. Quem pode acessar: `Qualquer pessoa`.
-8. Copie a URL gerada.
-9. Cole a URL em `js/config.js`, no campo `appScriptUrl`.
+3. Cole o conteudo de `appsscript.json` no manifesto do projeto.
+4. Salve o projeto.
+5. Execute manualmente `testarAutorizacaoPlanilha` e aceite as permissoes solicitadas.
+6. Execute manualmente `testarAutorizacaoEmail` para validar tambem o envio de email.
+7. Clique em `Implantar > Nova implantacao` ou `Gerenciar implantacoes > Editar`.
+8. Tipo: `App da Web`.
+9. Executar como: `Eu`.
+10. Quem pode acessar: `Qualquer pessoa`.
+11. Em alteracoes futuras, selecione sempre `Nova versao` antes de implantar.
+12. Copie a URL gerada.
+13. Cole a URL em `js/config.js`, no campo `appScriptUrl`.
 
 ## Teste rapido
 
