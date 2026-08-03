@@ -245,8 +245,10 @@ function testarAutorizacaoEmail() {
     "https://www.googleapis.com/auth/spreadsheets.currentonly"
   ]);
 
+  const spreadsheetName = SpreadsheetApp.getActive().getName();
   const quota = MailApp.getRemainingDailyQuota();
-  Logger.log("Autorização de email concluída. Cota diária restante: " + quota);
+  Logger.log("Autorização concluída para a planilha: " + spreadsheetName);
+  Logger.log("Cota diária de email restante: " + quota);
 }
 
 function handleRsvp_(data) {
