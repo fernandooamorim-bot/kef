@@ -559,7 +559,7 @@ function getRsvpAvailability_() {
   if (opensAt && now < opensAt) {
     return {
       open: false,
-      message: closedMessage || "As confirmações de presença estarão disponíveis a partir de " + formatDateLabel_(opensAt) + "."
+      message: "As confirmações de presença estarão disponíveis a partir de " + formatDateLabel_(opensAt) + "."
     };
   }
 

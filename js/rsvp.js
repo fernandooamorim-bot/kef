@@ -62,7 +62,7 @@ window.WeddingRsvp = {
       return {
         open: false,
         title: "Confirmações em breve.",
-        message: settings.closedMessage || `As confirmações de presença estarão disponíveis a partir de ${openLabel}.`
+        message: `As confirmações de presença estarão disponíveis a partir de ${openLabel}.`
       };
     }
 

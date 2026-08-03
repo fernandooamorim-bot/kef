@@ -9,7 +9,7 @@ window.WEDDING_CONFIG = {
     enabled: true,
     opensAt: "2026-09-29T00:00:00-03:00",
     closesAt: "2026-10-20T23:59:00-03:00",
-    closedMessage: "As confirmações de presença estarão disponíveis a partir de 29 de setembro de 2026."
+    closedMessage: ""
   },
   payment: {
     pix: {
@@ -19,7 +19,7 @@ window.WEDDING_CONFIG = {
     }
   },
   cache: {
-    publicConfigKey: "kf_public_config_v1",
+    publicConfigKey: "kf_public_config_v2",
     publicConfigTtlMinutes: 30,
     introSeenKey: "kf_intro_seen_v1",
     rsvpDraftKey: "kf_rsvp_draft_v1"
