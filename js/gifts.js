@@ -21,6 +21,7 @@ window.WeddingGifts = {
     this.amount = document.getElementById("giftDialogAmount");
     this.paymentHelp = document.getElementById("giftPaymentHelp");
     this.submitButton = this.form?.querySelector('button[type="submit"]');
+    this.customFields = document.getElementById("giftCustomFields");
     this.pixDialog = document.getElementById("pixDialog");
     this.pixQrImage = document.getElementById("pixQrImage");
     this.pixCopyPaste = document.getElementById("pixCopyPaste");
@@ -40,9 +41,10 @@ window.WeddingGifts = {
         imagePosition: gift.image_position || gift.imagePosition || "center center",
         paymentUrl: gift.payment_url || gift.paymentUrl || "",
         amount: Number(gift.amount || 0),
+        customAmount: gift.custom_amount === true || gift.customAmount === true || String(gift.custom_amount || gift.customAmount || "").toLowerCase() === "true",
         order: Number(gift.sort_order || 999)
       }))
-      .filter((gift) => gift.id && gift.title && gift.amount > 0)
+      .filter((gift) => gift.id && gift.title && (gift.amount > 0 || gift.customAmount))
       .sort((a, b) => a.order - b.order);
   },
 
@@ -70,7 +72,7 @@ window.WeddingGifts = {
         <div class="gift-card__body">
           <h3>${this.escape(gift.title)}</h3>
           <p>${this.escape(gift.description)}</p>
-          <strong>${this.formatCurrency(gift.amount)}</strong>
+          <strong>${gift.customAmount ? "Valor livre" : this.formatCurrency(gift.amount)}</strong>
           <button class="button button--primary" type="button" data-gift-id="${this.escape(gift.id)}">Presentear</button>
         </div>
       `;
@@ -130,10 +132,13 @@ window.WeddingGifts = {
     this.image.style.objectPosition = gift.imagePosition;
     this.title.textContent = gift.title;
     this.description.textContent = gift.description;
-    this.amount.textContent = this.formatCurrency(gift.amount);
+    this.amount.textContent = gift.customAmount ? "Valor livre" : this.formatCurrency(gift.amount);
+    this.toggleCustomFields(gift.customAmount);
     const pixOption = this.form.querySelector('[name="paymentMethod"][value="pix"]');
+    const cardOption = this.form.querySelector('[name="paymentMethod"][value="card"]');
     if (pixOption) pixOption.disabled = !this.hasPix();
-    this.setPaymentMethod(this.hasPix() ? "pix" : "card");
+    if (cardOption) cardOption.disabled = gift.customAmount;
+    this.setPaymentMethod(gift.customAmount ? "pix" : this.hasPix() ? "pix" : "card");
     this.updatePaymentHelp();
     window.WeddingModalLock?.lock();
     this.dialog.showModal();
@@ -143,6 +148,16 @@ window.WeddingGifts = {
     const data = this.readForm();
     if (!data.name || !data.phone) {
       this.status.textContent = "Preencha pelo menos nome e telefone.";
+      return;
+    }
+
+    if (data.customAmount && !data.customGiftTitle) {
+      this.status.textContent = "Dê um nome para o presente misterioso.";
+      return;
+    }
+
+    if (data.customAmount && data.amount <= 0) {
+      this.status.textContent = "Informe o valor do presente misterioso.";
       return;
     }
 
@@ -199,7 +214,9 @@ window.WeddingGifts = {
     const method = this.readPaymentMethod();
     if (method === "pix") {
       this.paymentHelp.textContent = this.hasPix()
-        ? "Ao continuar, sua mensagem será registrada e abriremos o QR Code Pix para pagamento direto."
+        ? this.selectedGift?.customAmount
+          ? "Para presente personalizado, sua mensagem será registrada e abriremos o Pix direto."
+          : "Ao continuar, sua mensagem será registrada e abriremos o QR Code Pix para pagamento direto."
         : "Pix direto ainda precisa do código copia e cola para ficar disponível.";
       return;
     }
@@ -239,6 +256,13 @@ window.WeddingGifts = {
     this.submitButton.textContent = isSubmitting ? "Registrando..." : "Registrar e pagar presente";
   },
 
+  toggleCustomFields(show) {
+    if (!this.customFields) return;
+    this.customFields.hidden = !show;
+    this.form.elements.customGiftTitle.required = show;
+    this.form.elements.customAmount.required = show;
+  },
+
   async copyPixCode() {
     const pixCode = this.pixCopyPaste?.value || this.getPixCode();
     if (!pixCode) return;
@@ -255,11 +279,14 @@ window.WeddingGifts = {
 
   readForm() {
     const gift = this.selectedGift;
-    const paymentMethod = this.readPaymentMethod();
+    const paymentMethod = gift.customAmount ? "pix" : this.readPaymentMethod();
+    const customGiftTitle = this.form.elements.customGiftTitle.value.trim();
+    const customAmount = this.parseCurrency(this.form.elements.customAmount.value);
     return {
       giftId: gift.id,
-      giftTitle: gift.title,
-      amount: gift.amount,
+      giftTitle: gift.customAmount ? customGiftTitle || gift.title : gift.title,
+      amount: gift.customAmount ? customAmount : gift.amount,
+      customAmount: gift.customAmount,
       paymentMethod,
       paymentUrl: gift.paymentUrl,
       name: this.form.elements.name.value.trim(),
@@ -269,6 +296,21 @@ window.WeddingGifts = {
       source: "site",
       userAgent: navigator.userAgent
     };
+  },
+
+  parseCurrency(value) {
+    const raw = String(value || "")
+      .replace(/[^\d,.-]/g, "")
+      .trim();
+    const hasComma = raw.includes(",");
+    const hasDot = raw.includes(".");
+    const normalized = hasComma
+      ? raw.replace(/\./g, "").replace(",", ".")
+      : hasDot
+        ? raw
+        : raw.replace(/[^\d]/g, "");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
   },
 
   formatCurrency(value) {

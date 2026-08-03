@@ -701,6 +701,14 @@
   font-size: 0.82rem;
 }
 
+.gift-custom-fields {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(178, 154, 104, 0.24);
+  background: rgba(178, 154, 104, 0.08);
+}
+
 .lightbox {
   max-width: min(92vw, 1080px);
   max-height: 92vh;
