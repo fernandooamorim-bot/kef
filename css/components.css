@@ -338,7 +338,8 @@
 .rsvp-form.is-rsvp-closed .rsvp-search,
 .rsvp-form.is-rsvp-closed .rsvp-selected,
 .rsvp-form.is-rsvp-closed .rsvp-details,
-.rsvp-form.is-rsvp-closed > button[type="submit"] {
+.rsvp-form.is-rsvp-closed > button[type="submit"],
+.rsvp-form.is-rsvp-closed .form-status {
   display: none;
 }
 
