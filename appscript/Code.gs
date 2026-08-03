@@ -252,6 +252,11 @@ function testarAutorizacaoEmail() {
 }
 
 function handleRsvp_(data) {
+  const availability = getRsvpAvailability_();
+  if (!availability.open) {
+    return jsonResponse(false, null, availability.message);
+  }
+
   if (!data.guestId || !data.guestName) {
     return jsonResponse(false, null, "Selecione seu nome na lista de convidados.");
   }
@@ -359,6 +364,11 @@ function handleInvite_(tokenValue) {
 }
 
 function handleGuestSearch_(query) {
+  const availability = getRsvpAvailability_();
+  if (!availability.open) {
+    return jsonResponse(false, null, availability.message);
+  }
+
   const term = normalizeText_(query);
   if (term.length < 2) {
     return jsonResponse(true, { guests: [] });
@@ -529,6 +539,57 @@ function readKeyValueSheet_(name) {
     if (row[0]) acc[String(row[0]).trim()] = row[1];
     return acc;
   }, {});
+}
+
+function getRsvpAvailability_() {
+  const config = readKeyValueSheet_(SHEETS.CONFIG);
+  const enabled = parseBooleanConfig_(config.rsvp_enabled, true);
+  const opensAt = parseConfigDate_(config.rsvp_open_at || config.rsvp_abre_em);
+  const closesAt = parseConfigDate_(config.rsvp_close_at || config.rsvp_fecha_em);
+  const closedMessage = String(config.rsvp_closed_message || config.mensagem_rsvp_fechado || "").trim();
+  const now = new Date();
+
+  if (!enabled) {
+    return {
+      open: false,
+      message: closedMessage || "As confirmações de presença serão liberadas em breve."
+    };
+  }
+
+  if (opensAt && now < opensAt) {
+    return {
+      open: false,
+      message: closedMessage || "As confirmações de presença estarão disponíveis a partir de " + formatDateLabel_(opensAt) + "."
+    };
+  }
+
+  if (closesAt && now > closesAt) {
+    return {
+      open: false,
+      message: "O prazo para confirmação de presença foi encerrado."
+    };
+  }
+
+  return { open: true, message: "" };
+}
+
+function parseBooleanConfig_(value, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  return ["false", "não", "nao", "no", "0", "off", "disabled"].indexOf(normalized) === -1;
+}
+
+function parseConfigDate_(value) {
+  if (!value) return null;
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) return value;
+  const raw = String(value).trim();
+  const normalized = raw.indexOf("T") !== -1 ? raw : raw.replace(" ", "T");
+  const date = new Date(normalized);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateLabel_(date) {
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "dd/MM/yyyy");
 }
 
 function readTableSheet_(name) {

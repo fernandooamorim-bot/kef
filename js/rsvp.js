@@ -2,12 +2,16 @@ window.WeddingRsvp = {
   selectedGuest: null,
   searchTimer: null,
   searchToken: 0,
+  availability: { open: true, message: "" },
 
   init() {
     this.form = document.getElementById("rsvpForm");
     this.status = document.getElementById("formStatus");
     if (!this.form || !this.status) return;
 
+    this.closedPanel = document.getElementById("rsvpClosedPanel");
+    this.closedTitle = document.getElementById("rsvpClosedTitle");
+    this.closedMessage = document.getElementById("rsvpClosedMessage");
     this.search = this.form.elements.guestSearch;
     this.guestId = this.form.elements.guestId;
     this.suggestions = document.getElementById("guestSuggestions");
@@ -23,7 +27,75 @@ window.WeddingRsvp = {
 
     this.restoreDraft();
     this.bindEvents();
+    this.applyConfig(window.WEDDING_CONFIG.rsvp || {});
     this.updateSubmitState();
+  },
+
+  applyConfig(config = {}) {
+    const fallback = window.WEDDING_CONFIG.rsvp || {};
+    const settings = {
+      enabled: this.parseBoolean(config.rsvp_enabled ?? config.enabled ?? fallback.enabled, true),
+      opensAt: config.rsvp_open_at || config.rsvp_abre_em || config.opensAt || fallback.opensAt || "",
+      closesAt: config.rsvp_close_at || config.rsvp_fecha_em || config.closesAt || fallback.closesAt || "",
+      closedMessage: config.rsvp_closed_message || config.mensagem_rsvp_fechado || config.closedMessage || fallback.closedMessage || ""
+    };
+    const state = this.getAvailability(settings);
+    this.availability = state;
+    this.renderAvailability(state);
+  },
+
+  getAvailability(settings) {
+    const now = new Date();
+    const opensAt = this.parseDate(settings.opensAt);
+    const closesAt = this.parseDate(settings.closesAt);
+    const openLabel = this.formatLongDate(opensAt);
+
+    if (!settings.enabled) {
+      return {
+        open: false,
+        title: "Confirmações temporariamente indisponíveis.",
+        message: settings.closedMessage || "As confirmações de presença serão liberadas em breve."
+      };
+    }
+
+    if (opensAt && now < opensAt) {
+      return {
+        open: false,
+        title: "Confirmações em breve.",
+        message: settings.closedMessage || `As confirmações de presença estarão disponíveis a partir de ${openLabel}.`
+      };
+    }
+
+    if (closesAt && now > closesAt) {
+      return {
+        open: false,
+        title: "Confirmações encerradas.",
+        message: "O prazo para confirmação de presença foi encerrado."
+      };
+    }
+
+    return { open: true, title: "", message: "" };
+  },
+
+  renderAvailability(state) {
+    const controls = Array.from(this.form.querySelectorAll("input, button"));
+    this.form.classList.toggle("is-rsvp-closed", !state.open);
+    if (this.closedPanel) this.closedPanel.hidden = state.open;
+    if (this.closedTitle) this.closedTitle.textContent = state.title || "As confirmações ainda não estão disponíveis.";
+    if (this.closedMessage) this.closedMessage.textContent = state.message || "";
+
+    controls.forEach((control) => {
+      if (control.closest("#rsvpClosedPanel")) return;
+      control.disabled = !state.open || (control.type === "submit" && control.disabled);
+    });
+
+    if (!state.open) {
+      this.hideSuggestions();
+      this.setSearching(false);
+      this.updateStatus(state.message);
+    } else {
+      this.updateSubmitState();
+    }
   },
 
   bindEvents() {
@@ -89,6 +161,12 @@ window.WeddingRsvp = {
   },
 
   queueSearch(value) {
+    if (!this.availability.open) {
+      this.renderSuggestions([]);
+      this.updateStatus(this.availability.message || "As confirmações ainda não estão disponíveis.");
+      return;
+    }
+
     window.clearTimeout(this.searchTimer);
     const query = value.trim();
 
@@ -196,6 +274,11 @@ window.WeddingRsvp = {
   },
 
   updateSubmitState() {
+    if (!this.availability.open) {
+      this.submitButton.disabled = true;
+      return;
+    }
+
     const data = this.readForm();
     const needsCompanionChoice = this.selectedGuest?.allowed_companions > 0 && data.attendance === "confirmed";
     const needsCompanionName = needsCompanionChoice && data.bringCompanion === "yes";
@@ -212,6 +295,16 @@ window.WeddingRsvp = {
 
   async submit(event) {
     event.preventDefault();
+    if (!this.availability.open) {
+      this.updateStatus(this.availability.message || "As confirmações ainda não estão disponíveis.");
+      window.WeddingFeedback?.show({
+        eyebrow: "Confirmação",
+        title: this.availability.title || "Confirmações em breve",
+        message: this.availability.message || "As confirmações de presença serão liberadas em breve."
+      });
+      return;
+    }
+
     const data = this.readForm();
 
     if (!data.guestId || !this.selectedGuest) {
@@ -314,6 +407,30 @@ window.WeddingRsvp = {
     } else {
       this.updateSubmitState();
     }
+  },
+
+  parseBoolean(value, fallback = false) {
+    if (value === undefined || value === null || value === "") return fallback;
+    const normalized = String(value).trim().toLowerCase();
+    return !["false", "não", "nao", "no", "0", "off", "disabled"].includes(normalized);
+  },
+
+  parseDate(value) {
+    if (!value) return null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+    const raw = String(value).trim();
+    const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  },
+
+  formatLongDate(date) {
+    if (!date) return "em breve";
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    }).format(date);
   },
 
   showSuggestions() {

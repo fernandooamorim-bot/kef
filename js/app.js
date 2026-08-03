@@ -131,6 +131,8 @@ const app = {
         heroVideoNode.load();
       }
     }
+
+    window.WeddingRsvp.applyConfig(remote);
   },
 
   resolveGalleryImage(value) {

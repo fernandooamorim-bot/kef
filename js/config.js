@@ -5,6 +5,12 @@ window.WEDDING_CONFIG = {
   heroImage: "_BQH1940.jpg",
   heroVideo: "assets/video/intro-casal-v2.mp4",
   appScriptUrl: "https://script.google.com/macros/s/AKfycbzYOTt7bXDOlIBGMTbZlycPShyCL1lJHB5BGJVPnEBWcvlB9kTvux8WDRJQ8kQ-SL-6cg/exec",
+  rsvp: {
+    enabled: true,
+    opensAt: "2026-09-29T00:00:00-03:00",
+    closesAt: "2026-10-20T23:59:00-03:00",
+    closedMessage: "As confirmações de presença estarão disponíveis a partir de 29 de setembro de 2026."
+  },
   payment: {
     pix: {
       receiverName: "Krisna",
