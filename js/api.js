@@ -1,4 +1,14 @@
 window.WeddingApi = {
+  async requestJson(url, options, fallbackMessage) {
+    try {
+      const response = await fetch(url, options);
+      const payload = await response.json();
+      return { response, payload };
+    } catch (error) {
+      throw new Error(fallbackMessage || "Não foi possível conectar ao sistema agora. Verifique sua internet e tente novamente.");
+    }
+  },
+
   async getPublicConfig() {
     const config = window.WEDDING_CONFIG;
     const cached = window.WeddingCache.read(config.cache.publicConfigKey);
@@ -8,11 +18,10 @@ window.WeddingApi = {
     }
 
     try {
-      const response = await fetch(`${config.appScriptUrl}?action=config`, {
+      const { response, payload } = await this.requestJson(`${config.appScriptUrl}?action=config`, {
         method: "GET",
         headers: { Accept: "application/json" }
-      });
-      const payload = await response.json();
+      }, "Não foi possível carregar as configurações agora.");
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || "Não foi possível carregar as configurações.");
       }
@@ -40,11 +49,10 @@ window.WeddingApi = {
     }
 
     const url = `${config.appScriptUrl}?action=guests&q=${encodeURIComponent(term)}`;
-    const response = await fetch(url, {
+    const { response, payload } = await this.requestJson(url, {
       method: "GET",
       headers: { Accept: "application/json" }
-    });
-    const payload = await response.json();
+    }, "Não foi possível buscar a lista de convidados agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       if (payload.error === "Ação GET não reconhecida.") {
         throw new Error("A lista de convidados está sendo atualizada. Tente novamente em instantes.");
@@ -83,15 +91,17 @@ window.WeddingApi = {
     }
 
     const url = `${config.appScriptUrl}?action=invite&t=${encodeURIComponent(cleanToken)}`;
-    const response = await fetch(url, {
+    const { response, payload } = await this.requestJson(url, {
       method: "GET",
       headers: { Accept: "application/json" }
-    });
-    const payload = await response.json();
+    }, "Não foi possível carregar este convite agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível carregar este convite.");
     }
-    return payload.data?.invite;
+    if (!payload.data?.invite) {
+      throw new Error("Convite não encontrado.");
+    }
+    return payload.data.invite;
   },
 
   async submitRsvp(data) {
@@ -108,12 +118,11 @@ window.WeddingApi = {
       };
     }
 
-    const response = await fetch(config.appScriptUrl, {
+    const { response, payload } = await this.requestJson(config.appScriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: "rsvp", data })
-    });
-    const payload = await response.json();
+    }, "Não foi possível enviar sua confirmação agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível enviar sua confirmação.");
     }
@@ -136,12 +145,11 @@ window.WeddingApi = {
       throw new Error("Configure o Apps Script para usar o check-in.");
     }
 
-    const response = await fetch(config.appScriptUrl, {
+    const { response, payload } = await this.requestJson(config.appScriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action, data })
-    });
-    const payload = await response.json();
+    }, "Não foi possível conectar ao sistema de check-in agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível concluir a operação.");
     }
@@ -174,12 +182,11 @@ window.WeddingApi = {
       };
     }
 
-    const response = await fetch(config.appScriptUrl, {
+    const { response, payload } = await this.requestJson(config.appScriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: "gift_intent", data })
-    });
-    const payload = await response.json();
+    }, "Não foi possível registrar o presente agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível registrar o presente.");
     }
