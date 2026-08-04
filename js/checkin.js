@@ -209,22 +209,24 @@ window.WeddingCheckin = {
     this.validateToken(value);
   },
 
-  async validateToken(token) {
+  async validateToken(token, options = {}) {
     if (!this.credentials) {
       this.pendingToken = token;
       return;
     }
 
     this.validating = true;
-    this.showResult("reading", "Validando convite", "Aguarde...", "Consultando a lista de confirmações.");
+    this.showResult("reading", "Validando convite", options.name || "Aguarde...", "Consultando a lista de confirmações.");
+    if (options.scrollToResult) this.scrollToResult();
     try {
       const result = await window.WeddingApi.validateCheckin({
         ...this.credentials,
         token
       });
-      this.renderValidation(result);
+      this.renderValidation(result, options);
     } catch (error) {
       this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
+      if (options.scrollToResult) this.scrollToResult();
       this.afterValidation("invalid", "Falha na validação");
     } finally {
       this.validating = false;
@@ -266,38 +268,68 @@ window.WeddingCheckin = {
         <strong>${this.escape(guest.name)}</strong>
         <span>${this.describeGuest(guest)}</span>
       `;
-      button.addEventListener("click", () => this.validateManualGuest(guest));
+      button.addEventListener("click", () => this.validateManualGuest(guest, button));
       this.manualResults.appendChild(button);
     });
   },
 
-  async validateManualGuest(guest) {
+  async validateManualGuest(guest, button) {
+    this.markManualSelection(button, guest);
+    this.showResult("reading", "Validando convite", guest.name || "Convidado", "Consultando a lista de confirmações.");
+    this.scrollToResult();
+
     if (guest.token) {
-      this.validateToken(guest.token);
+      await this.validateToken(guest.token, {
+        name: guest.name || "Convidado",
+        scrollToResult: true
+      });
       return;
     }
 
     this.validating = true;
-    this.showResult("reading", "Validando convite", guest.name || "Convidado", "Consultando a lista de confirmações.");
     try {
       const result = await window.WeddingApi.validateCheckin({
         ...this.credentials,
         guestId: guest.guestId
       });
-      this.renderValidation(result);
+      this.renderValidation(result, { scrollToResult: true });
     } catch (error) {
       this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
+      this.scrollToResult();
       this.afterValidation("invalid", "Falha na validação");
     } finally {
       this.validating = false;
     }
   },
 
-  renderValidation(result) {
+  markManualSelection(button, guest) {
+    if (!button) return;
+    this.manualResults.querySelectorAll(".manual-result").forEach((item) => {
+      item.classList.remove("is-validating");
+      item.disabled = false;
+    });
+    button.classList.add("is-validating");
+    button.disabled = true;
+    button.innerHTML = `
+      <strong>${this.escape(guest.name || "Convidado")}</strong>
+      <span>Validando...</span>
+    `;
+  },
+
+  renderValidation(result, options = {}) {
     const guest = result.guest || {};
     this.showResult(result.status, result.title, guest.name || "Convite", result.message, guest);
+    if (options.scrollToResult) this.scrollToResult();
     this.afterValidation(result.status, result.title, guest.name || "Convite", result.message);
     this.addHistory(result.status, result.title, guest.name || "Convite", result.message);
+  },
+
+  scrollToResult() {
+    if (!this.resultPanel) return;
+    this.resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      this.resultPanel.focus({ preventScroll: true });
+    }, 260);
   },
 
   afterValidation(status, title) {

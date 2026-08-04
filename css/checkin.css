@@ -375,6 +375,13 @@
   text-align: left;
 }
 
+.manual-result.is-validating,
+.manual-result:disabled {
+  background: rgba(178, 154, 104, 0.16);
+  cursor: progress;
+  opacity: 0.82;
+}
+
 .manual-result strong {
   color: var(--color-olive);
 }
