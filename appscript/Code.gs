@@ -11,6 +11,7 @@ const SHEETS = {
 };
 
 const SPREADSHEET_ID = "1YxiFGWAyUUVGzD13LEjYytLPsogIQ54H2VpQjkVJybY";
+const RSVP_ALREADY_REGISTERED_MESSAGE = "Obrigado pela sua resposta. Sua confirmação já foi registrada. Caso precise fazer alguma alteração, por favor, entre em contato diretamente com os noivos.";
 
 const HEADERS = {
   RSVP: [
@@ -281,6 +282,15 @@ function handleRsvp_(data) {
     return jsonResponse(false, null, "Convidado não encontrado. Confira o nome selecionado.");
   }
 
+  const existingRsvp = findLatestRsvpByGuestId_(guest.guest_id);
+  if (existingRsvp) {
+    return jsonResponse(true, {
+      alreadyRegistered: true,
+      attendance: existingRsvp.attendance || "",
+      message: RSVP_ALREADY_REGISTERED_MESSAGE
+    });
+  }
+
   const allowedCompanions = Number(guest.allowed_companions || 0);
   const companionsConfirmed = Number(data.companionsConfirmed || 0);
   if (companionsConfirmed > allowedCompanions) {
@@ -364,9 +374,9 @@ function handleInvite_(tokenValue) {
     return jsonResponse(false, null, "Este convite não está disponível.");
   }
 
-  const latest = findLatestConfirmedRsvpByGuestId_(record.guest_id);
-  if (latest && latest.checkin_token !== record.checkin_token) {
-    return jsonResponse(false, null, "Este convite foi substituído por uma confirmação mais recente.");
+  const latest = findLatestRsvpByGuestId_(record.guest_id);
+  if (!latest || latest.attendance !== "confirmed" || latest.checkin_token !== record.checkin_token) {
+    return jsonResponse(false, null, "Este convite foi substituído ou não está mais ativo.");
   }
 
   return jsonResponse(true, {
@@ -483,12 +493,12 @@ function handleCheckinValidate_(data) {
     });
   }
 
-  const latest = findLatestConfirmedRsvpByGuestId_(record.guest_id);
-  if (token && latest && latest.checkin_token !== record.checkin_token) {
+  const latest = findLatestRsvpByGuestId_(record.guest_id);
+  if (token && (!latest || latest.attendance !== "confirmed" || latest.checkin_token !== record.checkin_token)) {
     return jsonResponse(true, {
       status: "invalid",
       title: "QR Code substituído",
-      message: "Este QR pertence a uma confirmação anterior. Use o QR Code mais recente enviado ao convidado.",
+      message: "Este QR pertence a uma confirmação anterior ou não está mais ativo.",
       guest: publicCheckinGuest_(record)
     });
   }
@@ -730,6 +740,18 @@ function findRsvpByCheckinToken_(token) {
   const records = readRsvpRecords_();
   for (let index = records.length - 1; index >= 0; index -= 1) {
     if (String(records[index].checkin_token || "").trim() === normalizedToken) {
+      return records[index];
+    }
+  }
+  return null;
+}
+
+function findLatestRsvpByGuestId_(guestId) {
+  const id = String(guestId || "").trim();
+  if (!id) return null;
+  const records = readRsvpRecords_();
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    if (String(records[index].guest_id || "").trim() === id) {
       return records[index];
     }
   }

@@ -94,6 +94,7 @@ window.WeddingRsvp = {
       this.setSearching(false);
       this.updateStatus(state.message);
     } else {
+      this.updateStatus("");
       this.updateSubmitState();
     }
   },
@@ -345,7 +346,7 @@ window.WeddingRsvp = {
       window.WeddingProcessing?.close();
       window.WeddingFeedback?.show({
         eyebrow: "Confirmação",
-        title: data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
+        title: result.alreadyRegistered ? "Resposta já registrada" : data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
         message: result.message || "Recebemos sua resposta. Obrigado por avisar."
       });
     } catch (error) {

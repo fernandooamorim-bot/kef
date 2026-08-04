@@ -117,7 +117,10 @@ window.WeddingApi = {
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível enviar sua confirmação.");
     }
-    return payload;
+    return {
+      ok: payload.ok,
+      ...(payload.data || {})
+    };
   },
 
   normalize(value) {
