@@ -4,7 +4,7 @@ window.WEDDING_CONFIG = {
   weddingDate: "2026-10-29T15:30:00-03:00",
   heroImage: "_BQH1940.jpg",
   heroVideo: "assets/video/intro-casal-v2.mp4",
-  appScriptUrl: "https://script.google.com/macros/s/AKfycbzYOTt7bXDOlIBGMTbZlycPShyCL1lJHB5BGJVPnEBWcvlB9kTvux8WDRJQ8kQ-SL-6cg/exec",
+  appScriptUrl: "https://script.google.com/macros/s/AKfycbzDaui1-cXTXXSd3XUb6e47vzk9QeBIVycYOiRReYoieeZgXwjxyKJOA8DTPrfwY-UFkw/exec",
   rsvp: {
     enabled: true,
     opensAt: "2026-09-29T00:00:00-03:00",
