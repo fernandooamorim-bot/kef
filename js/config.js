@@ -7,8 +7,8 @@ window.WEDDING_CONFIG = {
   appScriptUrl: "https://script.google.com/macros/s/AKfycbzDaui1-cXTXXSd3XUb6e47vzk9QeBIVycYOiRReYoieeZgXwjxyKJOA8DTPrfwY-UFkw/exec",
   rsvp: {
     enabled: true,
-    opensAt: "2026-09-29T00:00:00-03:00",
-    closesAt: "2026-10-20T23:59:00-03:00",
+    opensAt: "",
+    closesAt: "",
     closedMessage: ""
   },
   payment: {
@@ -19,7 +19,7 @@ window.WEDDING_CONFIG = {
     }
   },
   cache: {
-    publicConfigKey: "kf_public_config_v2",
+    publicConfigKey: "kf_public_config_v3",
     publicConfigTtlMinutes: 30,
     introSeenKey: "kf_intro_seen_v1",
     rsvpDraftKey: "kf_rsvp_draft_v1"
