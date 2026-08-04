@@ -395,6 +395,7 @@ function handleGuestSearch_(query) {
     return jsonResponse(true, { guests: [] });
   }
 
+  const latestRsvps = getLatestRsvpByGuestIdMap_();
   const guests = readTableSheet_(SHEETS.CONVIDADOS)
     .filter(function(guest) {
       const status = normalizeText_(guest.status || "");
@@ -402,12 +403,18 @@ function handleGuestSearch_(query) {
     })
     .slice(0, 8)
     .map(function(guest) {
+      const rsvp = latestRsvps[String(guest.guest_id || "").trim()] || null;
       return {
         guest_id: guest.guest_id,
         name: guest.name,
         group: guest.group || "",
         allowed_companions: Number(guest.allowed_companions || 0),
-        status: guest.status || ""
+        status: guest.status || "",
+        rsvp: rsvp ? {
+          registered: true,
+          attendance: rsvp.attendance || "",
+          message: RSVP_ALREADY_REGISTERED_MESSAGE
+        } : null
       };
     });
 
@@ -756,6 +763,15 @@ function findLatestRsvpByGuestId_(guestId) {
     }
   }
   return null;
+}
+
+function getLatestRsvpByGuestIdMap_() {
+  const records = readRsvpRecords_();
+  return records.reduce(function(acc, record) {
+    const id = String(record.guest_id || "").trim();
+    if (id) acc[id] = record;
+    return acc;
+  }, {});
 }
 
 function findLatestConfirmedRsvpByGuestId_(guestId) {

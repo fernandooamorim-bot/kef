@@ -133,6 +133,7 @@ const app = {
     }
 
     window.WeddingRsvp.applyConfig(remote);
+    window.WeddingGifts.update(data);
   },
 
   resolveGalleryImage(value) {

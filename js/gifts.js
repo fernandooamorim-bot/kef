@@ -3,10 +3,26 @@ window.WeddingGifts = {
   selectedGift: null,
 
   init(data) {
-    this.gifts = this.normalizeGifts(data?.gifts || window.WEDDING_CONFIG.fallbackData.gifts || []);
+    this.gifts = this.withFallbackComplements(data?.gifts || window.WEDDING_CONFIG.fallbackData.gifts || []);
     this.cacheElements();
     this.render();
     this.bindEvents();
+  },
+
+  update(data) {
+    const nextGifts = this.withFallbackComplements(data?.gifts || []);
+    if (!nextGifts.length) return;
+    this.gifts = nextGifts;
+    this.render();
+  },
+
+  withFallbackComplements(gifts) {
+    const normalized = this.normalizeGifts(gifts);
+    const fallback = this.normalizeGifts(window.WEDDING_CONFIG.fallbackData.gifts || []);
+    const ids = new Set(normalized.map((gift) => gift.id));
+    return normalized
+      .concat(fallback.filter((gift) => !ids.has(gift.id)))
+      .sort((a, b) => a.order - b.order);
   },
 
   cacheElements() {
@@ -38,7 +54,7 @@ window.WeddingGifts = {
         title: gift.title || "",
         description: gift.description || "",
         image: gift.image || window.WEDDING_CONFIG.defaultGiftImage,
-        imagePosition: gift.image_position || gift.imagePosition || "center center",
+        imagePosition: gift.image_position || gift.posicao_imagem || gift.imagePosition || "center center",
         paymentUrl: gift.payment_url || gift.paymentUrl || "",
         amount: Number(gift.amount || 0),
         customAmount: gift.custom_amount === true || gift.customAmount === true || String(gift.custom_amount || gift.customAmount || "").toLowerCase() === "true",

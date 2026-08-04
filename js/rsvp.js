@@ -228,18 +228,23 @@ window.WeddingRsvp = {
       name: guest.name,
       group: guest.group || "",
       allowed_companions: Number(guest.allowed_companions || 0),
-      status: guest.status || ""
+      status: guest.status || "",
+      rsvp: guest.rsvp || null
     };
     this.search.value = guest.name;
     this.guestId.value = guest.guest_id;
     this.selectedName.textContent = guest.name;
     this.selectedBox.hidden = false;
-    this.details.hidden = false;
+    this.details.hidden = Boolean(this.selectedGuest.rsvp?.registered);
     this.hideSuggestions();
     this.updateCompanionVisibility();
     this.updateSubmitState();
     this.persistDraft();
-    if (!options.silent) this.updateStatus("Nome selecionado. Agora escolha sua confirmação.");
+    if (!options.silent) {
+      this.updateStatus(this.selectedGuest.rsvp?.registered
+        ? this.selectedGuest.rsvp.message || "Obrigado pela sua resposta. Sua confirmação já foi registrada. Caso precise fazer alguma alteração, por favor, entre em contato diretamente com os noivos."
+        : "Nome selecionado. Agora escolha sua confirmação.");
+    }
   },
 
   clearSelectedGuest() {
@@ -280,6 +285,11 @@ window.WeddingRsvp = {
       return;
     }
 
+    if (this.selectedGuest?.rsvp?.registered) {
+      this.submitButton.disabled = true;
+      return;
+    }
+
     const data = this.readForm();
     const needsCompanionChoice = this.selectedGuest?.allowed_companions > 0 && data.attendance === "confirmed";
     const needsCompanionName = needsCompanionChoice && data.bringCompanion === "yes";
@@ -311,6 +321,17 @@ window.WeddingRsvp = {
     if (!data.guestId || !this.selectedGuest) {
       this.updateStatus("Selecione seu nome na lista antes de enviar.");
       this.search.focus();
+      return;
+    }
+
+    if (this.selectedGuest.rsvp?.registered) {
+      const message = this.selectedGuest.rsvp.message || "Obrigado pela sua resposta. Sua confirmação já foi registrada. Caso precise fazer alguma alteração, por favor, entre em contato diretamente com os noivos.";
+      this.updateStatus(message);
+      window.WeddingFeedback?.show({
+        eyebrow: "Confirmação",
+        title: "Resposta já registrada",
+        message
+      });
       return;
     }
 
