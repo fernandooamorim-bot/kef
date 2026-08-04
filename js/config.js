@@ -20,7 +20,7 @@ window.WEDDING_CONFIG = {
   },
   cache: {
     publicConfigKey: "kf_public_config_v3",
-    publicConfigTtlMinutes: 30,
+    publicConfigTtlMinutes: 5,
     introSeenKey: "kf_intro_seen_v1",
     rsvpDraftKey: "kf_rsvp_draft_v1"
   },

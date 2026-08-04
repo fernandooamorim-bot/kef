@@ -1,16 +1,21 @@
-const CHECKIN_CACHE = "kf-checkin-v6";
+const CHECKIN_CACHE = "kf-checkin-v7";
 const CHECKIN_ASSETS = [
   "./checkin.html",
   "./convite.html",
+  "./cancelar.html",
+  "./admin.html",
   "./checkin-manifest.webmanifest",
   "./css/base.css",
   "./css/checkin.css",
   "./css/convite.css",
+  "./css/admin.css",
   "./js/config.js",
   "./js/cache.js",
   "./js/api.js",
   "./js/checkin.js",
   "./js/convite.js",
+  "./js/cancelar.js",
+  "./js/admin.js",
   "./assets/brand/favicon.svg",
   "./assets/brand/monograma-small.png",
   "./assets/icons/checkin-192.png",

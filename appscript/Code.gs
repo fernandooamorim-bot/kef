@@ -12,6 +12,8 @@ const SHEETS = {
 
 const SPREADSHEET_ID = "1YxiFGWAyUUVGzD13LEjYytLPsogIQ54H2VpQjkVJybY";
 const RSVP_ALREADY_REGISTERED_MESSAGE = "Obrigado pela sua resposta. Sua confirmação já foi registrada. Caso precise fazer alguma alteração, por favor, entre em contato diretamente com os noivos.";
+const PUBLIC_CONFIG_CACHE_KEY = "kef_public_config_v1";
+const PUBLIC_CONFIG_CACHE_SECONDS = 5 * 60;
 
 const HEADERS = {
   RSVP: [
@@ -27,6 +29,8 @@ const HEADERS = {
     "token_checkin",
     "link_checkin",
     "link_convite",
+    "token_cancelamento",
+    "link_cancelamento",
     "qr_code",
     "status_checkin",
     "checkin_realizado_em",
@@ -59,6 +63,16 @@ const HEADERS = {
     "senha",
     "nome",
     "ativo",
+    "observacoes"
+  ],
+  CONVIDADOS: [
+    "codigo_convidado",
+    "nome",
+    "grupo",
+    "telefone",
+    "email",
+    "acompanhantes_permitidos",
+    "status",
     "observacoes"
   ]
 };
@@ -127,6 +141,10 @@ const HEADER_ALIASES = {
   link_checkin: "checkin_link",
   invite_link: "invite_link",
   link_convite: "invite_link",
+  cancellation_token: "cancellation_token",
+  token_cancelamento: "cancellation_token",
+  cancellation_link: "cancellation_link",
+  link_cancelamento: "cancellation_link",
   qr_code: "qr_code",
   status_checkin: "checkin_status",
   checkin_status: "checkin_status",
@@ -187,6 +205,14 @@ function doGet(e) {
   try {
     const action = (e.parameter.action || "config").toLowerCase();
 
+    if (action === "health") {
+      return jsonResponse(true, {
+        status: "online",
+        version: "kef-appscript",
+        time: new Date().toISOString()
+      });
+    }
+
     if (action === "guests") {
       return handleGuestSearch_(e.parameter.q || "");
     }
@@ -195,17 +221,15 @@ function doGet(e) {
       return handleInvite_(e.parameter.t || e.parameter.token || "");
     }
 
+    if (action === "cancel_info") {
+      return handleCancelInfo_(e.parameter.t || e.parameter.token || "");
+    }
+
     if (action !== "config") {
       return jsonResponse(false, null, "Ação GET não reconhecida.");
     }
 
-    return jsonResponse(true, {
-      config: readKeyValueSheet_(SHEETS.CONFIG),
-      pages: readTableSheet_(SHEETS.PAGINAS),
-      gifts: readTableSheet_(SHEETS.PRESENTES),
-      gallery: readTableSheet_(SHEETS.GALERIA),
-      messages: readTableSheet_(SHEETS.MENSAGENS)
-    });
+    return handlePublicConfig_(e.parameter.refresh === "1" || e.parameter.nocache === "1");
   } catch (error) {
     return jsonResponse(false, null, error.message);
   }
@@ -236,6 +260,18 @@ function doPost(e) {
       return handleCheckinSearch_(body.data || {});
     }
 
+    if (action === "cancel_rsvp") {
+      return handleCancelRsvp_(body.data || {});
+    }
+
+    if (action === "admin_summary") {
+      return handleAdminSummary_(body.data || {});
+    }
+
+    if (action === "admin_create_guest") {
+      return handleAdminCreateGuest_(body.data || {});
+    }
+
     return jsonResponse(false, null, "Ação POST não reconhecida.");
   } catch (error) {
     return jsonResponse(false, null, error.message);
@@ -261,6 +297,34 @@ function testarAutorizacaoPlanilha() {
 
   const spreadsheetName = getSpreadsheet_().getName();
   Logger.log("Autorização concluída para a planilha: " + spreadsheetName);
+}
+
+function handlePublicConfig_(forceRefresh) {
+  const cache = CacheService.getScriptCache();
+  if (!forceRefresh) {
+    const cached = cache.get(PUBLIC_CONFIG_CACHE_KEY);
+    if (cached) {
+      try {
+        return jsonResponse(true, JSON.parse(cached));
+      } catch (error) {
+        cache.remove(PUBLIC_CONFIG_CACHE_KEY);
+      }
+    }
+  }
+
+  const data = readPublicConfigData_();
+  cache.put(PUBLIC_CONFIG_CACHE_KEY, JSON.stringify(data), PUBLIC_CONFIG_CACHE_SECONDS);
+  return jsonResponse(true, data);
+}
+
+function readPublicConfigData_() {
+  return {
+    config: readKeyValueSheet_(SHEETS.CONFIG),
+    pages: readTableSheet_(SHEETS.PAGINAS),
+    gifts: readTableSheet_(SHEETS.PRESENTES),
+    gallery: readTableSheet_(SHEETS.GALERIA),
+    messages: readTableSheet_(SHEETS.MENSAGENS)
+  };
 }
 
 function handleRsvp_(data) {
@@ -314,10 +378,13 @@ function handleRsvp_(data) {
   const checkinToken = data.attendance === "confirmed" ? createCheckinToken_(guest.guest_id) : "";
   const checkinLink = checkinToken ? buildCheckinLink_(checkinToken) : "";
   const inviteLink = checkinToken ? buildInviteLink_(checkinToken) : "";
+  const cancellationToken = checkinToken ? createCancellationToken_(guest.guest_id) : "";
+  const cancellationLink = cancellationToken ? buildCancellationLink_(cancellationToken) : "";
   const qrCode = checkinLink ? buildQrCodeUrl_(checkinLink) : "";
   const whatsappLink = buildWhatsappLink_(data.phoneDigits || phone, {
     guestName: guest.name,
     inviteLink: inviteLink,
+    cancellationLink: cancellationLink,
     attendance: data.attendance
   });
   const emailResult = sendRsvpConfirmationEmail_(guest, {
@@ -328,6 +395,7 @@ function handleRsvp_(data) {
     checkinToken: checkinToken,
     checkinLink: checkinLink,
     inviteLink: inviteLink,
+    cancellationLink: cancellationLink,
     qrCode: qrCode
   });
 
@@ -348,6 +416,8 @@ function handleRsvp_(data) {
     checkin_token: checkinToken,
     checkin_link: checkinLink,
     invite_link: inviteLink,
+    cancellation_token: cancellationToken,
+    cancellation_link: cancellationLink,
     qr_code: qrCode,
     checkin_status: checkinToken ? "pendente" : "",
     checkin_at: "",
@@ -381,6 +451,66 @@ function handleInvite_(tokenValue) {
 
   return jsonResponse(true, {
     invite: publicInvite_(record)
+  });
+}
+
+function handleCancelInfo_(tokenValue) {
+  const record = findActiveRsvpByCancellationToken_(tokenValue);
+  if (!record) {
+    return jsonResponse(false, null, "Este link de cancelamento não está disponível ou não está mais ativo.");
+  }
+
+  return jsonResponse(true, {
+    cancellation: publicCancellation_(record)
+  });
+}
+
+function handleCancelRsvp_(data) {
+  const record = findActiveRsvpByCancellationToken_(data.token || data.cancellationToken || "");
+  if (!record) {
+    return jsonResponse(false, null, "Este link de cancelamento não está disponível ou não está mais ativo.");
+  }
+
+  const latest = findLatestRsvpByGuestId_(record.guest_id);
+  if (!latest || latest.attendance !== "confirmed" || latest.cancellation_token !== record.cancellation_token) {
+    return jsonResponse(false, null, "Esta confirmação já foi alterada. Fale diretamente com os noivos.");
+  }
+  if (latest.checkin_at) {
+    return jsonResponse(false, null, "Este convite já foi validado na entrada. Para qualquer ajuste, fale diretamente com os noivos.");
+  }
+
+  const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
+  appendRecord_(sheet, {
+    timestamp: new Date(),
+    guest_id: record.guest_id,
+    guest_name: record.guest_name,
+    name: record.guest_name,
+    attendance: "cancelled",
+    companions_confirmed: 0,
+    companion_name: "",
+    companion: "",
+    phone: record.phone || "",
+    whatsapp_link: record.whatsapp_link || "",
+    email: record.email || "",
+    checkin_token: "",
+    checkin_link: "",
+    invite_link: "",
+    cancellation_token: "",
+    cancellation_link: "",
+    qr_code: "",
+    checkin_status: "cancelado",
+    checkin_at: "",
+    checkin_by: "",
+    confirmation_email_sent_at: "",
+    confirmation_email_error: "",
+    source: data.source || "cancelamento_link",
+    userAgent: data.userAgent || ""
+  });
+
+  sendCancellationEmail_(record);
+
+  return jsonResponse(true, {
+    message: "Cancelamento registrado com sucesso."
   });
 }
 
@@ -482,7 +612,10 @@ function handleCheckinValidate_(data) {
   if (!operator.ok) return jsonResponse(false, null, operator.error);
 
   const token = extractCheckinToken_(data.token || data.value || "");
-  const record = token ? findRsvpByCheckinToken_(token) : findLatestConfirmedRsvpByGuestId_(data.guestId);
+  const records = readRsvpRecords_();
+  const record = token
+    ? findRsvpByCheckinTokenInRecords_(records, token)
+    : findLatestConfirmedRsvpByGuestIdInRecords_(records, data.guestId);
   if (!record) {
     return jsonResponse(true, {
       status: "invalid",
@@ -500,7 +633,7 @@ function handleCheckinValidate_(data) {
     });
   }
 
-  const latest = findLatestRsvpByGuestId_(record.guest_id);
+  const latest = findLatestRsvpByGuestIdInRecords_(records, record.guest_id);
   if (!latest || latest.attendance !== "confirmed" || latest.checkin_token !== record.checkin_token) {
     return jsonResponse(true, {
       status: "invalid",
@@ -550,16 +683,156 @@ function handleCheckinSearch_(data) {
       return latestByGuest[key];
     })
     .filter(function(record) {
-    if (record.attendance !== "confirmed") return;
-    if (!normalizeText_(record.guest_name).includes(term)) return;
-      return true;
+      return record.attendance === "confirmed" && normalizeText_(record.guest_name).includes(term);
     })
-    .map(function(key) {
-      return publicCheckinGuest_(key);
+    .map(function(record) {
+      return publicCheckinGuest_(record);
     })
     .slice(0, 10);
 
   return jsonResponse(true, { guests: guests });
+}
+
+function handleAdminSummary_(data) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+
+  const guests = readTableSheet_(SHEETS.CONVIDADOS);
+  const latestRsvps = getLatestRsvpByGuestIdMap_();
+  const rows = guests
+    .filter(function(guest) {
+      const status = normalizeText_(guest.status || "");
+      return status !== "cancelado" && status !== "inativo";
+    })
+    .map(function(guest) {
+      const rsvp = latestRsvps[String(guest.guest_id || "").trim()] || null;
+      return publicAdminGuest_(guest, rsvp);
+    });
+
+  const totals = rows.reduce(function(acc, row) {
+    acc.total += 1;
+    acc[row.status] = (acc[row.status] || 0) + 1;
+    acc.people += Number(row.totalPeople || 0);
+    return acc;
+  }, { total: 0, confirmed: 0, declined: 0, cancelled: 0, pending: 0, people: 0 });
+
+  return jsonResponse(true, {
+    operator: {
+      username: operator.username,
+      name: operator.name
+    },
+    totals: totals,
+    guests: rows
+  });
+}
+
+function handleAdminCreateGuest_(data) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+
+  const name = String(data.name || "").trim();
+  if (!name) {
+    return jsonResponse(false, null, "Informe o nome do convidado avulso.");
+  }
+
+  const companionsConfirmed = Math.max(0, Math.min(1, Number(data.companionsConfirmed || 0)));
+  const companionName = companionsConfirmed > 0 ? String(data.companionName || "").trim() : "";
+  if (companionsConfirmed > 0 && !companionName) {
+    return jsonResponse(false, null, "Informe o nome do acompanhante.");
+  }
+
+  const guestId = createAdHocGuestId_();
+  const phone = String(data.phone || "").trim();
+  const email = String(data.email || "").trim();
+  const checkinToken = createCheckinToken_(guestId);
+  const checkinLink = buildCheckinLink_(checkinToken);
+  const inviteLink = buildInviteLink_(checkinToken);
+  const cancellationToken = createCancellationToken_(guestId);
+  const cancellationLink = buildCancellationLink_(cancellationToken);
+  const qrCode = buildQrCodeUrl_(checkinLink);
+  const whatsappLink = buildWhatsappLink_(phone, {
+    guestName: name,
+    inviteLink: inviteLink,
+    cancellationLink: cancellationLink,
+    attendance: "confirmed"
+  });
+
+  appendGuestRecord_({
+    guest_id: guestId,
+    name: name,
+    group: data.group || "Avulso",
+    phone: phone,
+    email: email,
+    allowed_companions: companionsConfirmed,
+    status: "avulso",
+    notes: "Criado pela gestão em " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm")
+  });
+
+  const emailResult = sendRsvpConfirmationEmail_({ name: name }, {
+    attendance: "confirmed",
+    companionsConfirmed: companionsConfirmed,
+    companionName: companionName,
+    email: email,
+    checkinToken: checkinToken,
+    checkinLink: checkinLink,
+    inviteLink: inviteLink,
+    cancellationLink: cancellationLink,
+    qrCode: qrCode
+  });
+
+  const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
+  appendRecord_(sheet, {
+    timestamp: new Date(),
+    guest_id: guestId,
+    guest_name: name,
+    name: name,
+    attendance: "confirmed",
+    companions_confirmed: companionsConfirmed,
+    companion_name: companionName,
+    companion: companionName,
+    phone: phone,
+    whatsapp_link: whatsappLink,
+    email: email,
+    checkin_token: checkinToken,
+    checkin_link: checkinLink,
+    invite_link: inviteLink,
+    cancellation_token: cancellationToken,
+    cancellation_link: cancellationLink,
+    qr_code: qrCode,
+    checkin_status: "pendente",
+    checkin_at: "",
+    checkin_by: "",
+    confirmation_email_sent_at: emailResult.sentAt || "",
+    confirmation_email_error: emailResult.error || "",
+    source: "gestao_avulsa",
+    userAgent: data.userAgent || ""
+  });
+
+  return jsonResponse(true, {
+    guest: publicAdminGuest_({
+      guest_id: guestId,
+      name: name,
+      group: data.group || "Avulso",
+      allowed_companions: companionsConfirmed,
+      status: "avulso"
+    }, {
+      guest_id: guestId,
+      guest_name: name,
+      attendance: "confirmed",
+      companions_confirmed: companionsConfirmed,
+      companion_name: companionName,
+      phone: phone,
+      email: email,
+      checkin_token: checkinToken,
+      checkin_link: checkinLink,
+      invite_link: inviteLink,
+      cancellation_token: cancellationToken,
+      cancellation_link: cancellationLink,
+      qr_code: qrCode,
+      checkin_status: "pendente"
+    }),
+    message: "Convidado avulso criado com QR Code ativo."
+  });
 }
 
 function getSpreadsheet_() {
@@ -691,8 +964,13 @@ function appendRecord_(sheet, record) {
     });
   sheet.appendRow(headers.map(function(header) {
     const canonical = canonicalHeaderForSheet_(sheetName, header);
-    return Object.prototype.hasOwnProperty.call(record, canonical) ? record[canonical] : "";
+      return Object.prototype.hasOwnProperty.call(record, canonical) ? record[canonical] : "";
   }));
+}
+
+function appendGuestRecord_(record) {
+  const sheet = getOrCreateSheet_(SHEETS.CONVIDADOS, HEADERS.CONVIDADOS);
+  appendRecord_(sheet, record);
 }
 
 function validateOperator_(data) {
@@ -746,9 +1024,12 @@ function readRsvpRecords_() {
 }
 
 function findRsvpByCheckinToken_(token) {
+  return findRsvpByCheckinTokenInRecords_(readRsvpRecords_(), token);
+}
+
+function findRsvpByCheckinTokenInRecords_(records, token) {
   const normalizedToken = String(token || "").trim();
   if (!normalizedToken) return null;
-  const records = readRsvpRecords_();
   for (let index = records.length - 1; index >= 0; index -= 1) {
     if (String(records[index].checkin_token || "").trim() === normalizedToken) {
       return records[index];
@@ -758,9 +1039,12 @@ function findRsvpByCheckinToken_(token) {
 }
 
 function findLatestRsvpByGuestId_(guestId) {
+  return findLatestRsvpByGuestIdInRecords_(readRsvpRecords_(), guestId);
+}
+
+function findLatestRsvpByGuestIdInRecords_(records, guestId) {
   const id = String(guestId || "").trim();
   if (!id) return null;
-  const records = readRsvpRecords_();
   for (let index = records.length - 1; index >= 0; index -= 1) {
     if (String(records[index].guest_id || "").trim() === id) {
       return records[index];
@@ -779,9 +1063,12 @@ function getLatestRsvpByGuestIdMap_() {
 }
 
 function findLatestConfirmedRsvpByGuestId_(guestId) {
+  return findLatestConfirmedRsvpByGuestIdInRecords_(readRsvpRecords_(), guestId);
+}
+
+function findLatestConfirmedRsvpByGuestIdInRecords_(records, guestId) {
   const id = String(guestId || "").trim();
   if (!id) return null;
-  const records = readRsvpRecords_();
   for (let index = records.length - 1; index >= 0; index -= 1) {
     if (String(records[index].guest_id || "").trim() === id && records[index].attendance === "confirmed") {
       return records[index];
@@ -846,6 +1133,80 @@ function publicInvite_(record) {
   };
 }
 
+function findActiveRsvpByCancellationToken_(tokenValue) {
+  const token = String(tokenValue || "").trim();
+  if (!token) return null;
+
+  const records = readRsvpRecords_();
+  let record = null;
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    if (String(records[index].cancellation_token || "").trim() === token) {
+      record = records[index];
+      break;
+    }
+  }
+
+  if (!record || record.attendance !== "confirmed") return null;
+  const latest = findLatestRsvpByGuestIdInRecords_(records, record.guest_id);
+  if (!latest || latest.attendance !== "confirmed" || latest.cancellation_token !== record.cancellation_token) return null;
+  return record;
+}
+
+function publicCancellation_(record) {
+  return {
+    token: record.cancellation_token || "",
+    name: record.guest_name || "",
+    attendance: record.attendance || "",
+    companionsConfirmed: Number(record.companions_confirmed || 0),
+    companionName: record.companion_name || "",
+    inviteLink: record.invite_link || "",
+    checkinStatus: record.checkin_status || (record.checkin_at ? "validado" : "pendente")
+  };
+}
+
+function publicAdminGuest_(guest, rsvp) {
+  const attendance = rsvp ? String(rsvp.attendance || "") : "";
+  const status = attendance === "confirmed"
+    ? "confirmed"
+    : attendance === "declined"
+      ? "declined"
+      : attendance === "cancelled" || attendance === "canceled"
+        ? "cancelled"
+        : "pending";
+  const companions = rsvp ? Number(rsvp.companions_confirmed || 0) : 0;
+
+  return {
+    guestId: guest.guest_id || "",
+    name: guest.name || guest.guest_name || "",
+    group: guest.group || "",
+    allowedCompanions: Number(guest.allowed_companions || 0),
+    status: status,
+    statusLabel: adminStatusLabel_(status),
+    totalPeople: status === "confirmed" ? 1 + companions : 0,
+    attendance: attendance,
+    companionsConfirmed: companions,
+    companionName: rsvp ? rsvp.companion_name || "" : "",
+    phone: rsvp ? rsvp.phone || "" : guest.phone || "",
+    email: rsvp ? rsvp.email || "" : guest.email || "",
+    lastResponseAt: rsvp ? rsvp.timestamp || "" : "",
+    checkinStatus: rsvp ? rsvp.checkin_status || (rsvp.checkin_at ? "validado" : "") : "",
+    checkinAt: rsvp ? rsvp.checkin_at || "" : "",
+    checkinBy: rsvp ? rsvp.checkin_by || "" : "",
+    inviteLink: rsvp ? rsvp.invite_link || "" : "",
+    cancellationLink: rsvp ? rsvp.cancellation_link || "" : "",
+    qrCode: rsvp ? rsvp.qr_code || "" : "",
+    source: rsvp ? rsvp.source || "" : "",
+    notes: guest.notes || ""
+  };
+}
+
+function adminStatusLabel_(status) {
+  if (status === "confirmed") return "Confirmado";
+  if (status === "declined") return "Não vai";
+  if (status === "cancelled") return "Cancelado";
+  return "Falta confirmar";
+}
+
 function isEnabled_(value) {
   if (value === undefined || value === null || value === "") return true;
   return String(value).toLowerCase() !== "false" && String(value).toUpperCase() !== "FALSE" && String(value).toLowerCase() !== "não";
@@ -882,6 +1243,16 @@ function createCheckinToken_(guestId) {
   return "CHK-" + cleanId + "-" + random;
 }
 
+function createCancellationToken_(guestId) {
+  const cleanId = String(guestId || "KF").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const random = Utilities.getUuid().replace(/-/g, "").slice(0, 18).toUpperCase();
+  return "CXL-" + cleanId + "-" + random;
+}
+
+function createAdHocGuestId_() {
+  return "AV-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + "-" + Math.floor(Math.random() * 9000 + 1000);
+}
+
 function buildCheckinLink_(token) {
   const domain = String(readKeyValueSheet_(SHEETS.CONFIG).domain || "https://krisnaefernando.com/").replace(/\/?$/, "/");
   return domain + "checkin.html?t=" + encodeURIComponent(token);
@@ -890,6 +1261,11 @@ function buildCheckinLink_(token) {
 function buildInviteLink_(token) {
   const domain = String(readKeyValueSheet_(SHEETS.CONFIG).domain || "https://krisnaefernando.com/").replace(/\/?$/, "/");
   return domain + "convite.html?t=" + encodeURIComponent(token);
+}
+
+function buildCancellationLink_(token) {
+  const domain = String(readKeyValueSheet_(SHEETS.CONFIG).domain || "https://krisnaefernando.com/").replace(/\/?$/, "/");
+  return domain + "cancelar.html?t=" + encodeURIComponent(token);
 }
 
 function buildQrCodeUrl_(value) {
@@ -914,14 +1290,18 @@ function buildWhatsappLink_(phone, data) {
   if (!inviteLink) return "https://wa.me/" + digits;
 
   const firstName = String(data.guestName || "").trim().split(/\s+/)[0] || "Olá";
-  const message = [
+  const lines = [
     "Olá, " + firstName + "! Sua presença no casamento de Krisna & Fernando foi confirmada.",
     "",
     "Acesse seu convite digital com QR Code:",
     inviteLink,
     "",
     "No dia do evento, apresente este QR Code na recepção para agilizar sua entrada."
-  ].join("\n");
+  ];
+  if (data.cancellationLink) {
+    lines.push("", "Se precisar cancelar sua presença, use este link: " + data.cancellationLink);
+  }
+  const message = lines.join("\n");
 
   return "https://wa.me/" + digits + "?text=" + encodeURIComponent(message);
 }
@@ -953,14 +1333,78 @@ function sendRsvpConfirmationEmail_(guest, data) {
   }
 }
 
+function sendCancellationEmail_(record) {
+  const email = String(record.email || "").trim();
+  if (!email || email.indexOf("@") === -1) {
+    return { sentAt: "", error: "" };
+  }
+
+  const name = record.guest_name || "Convidado";
+  const plainBody = [
+    "Olá, " + name + ".",
+    "",
+    "Recebemos o cancelamento da sua presença.",
+    "",
+    "Agradecemos por nos avisar.",
+    "",
+    "Krisna & Fernando"
+  ].join("\n");
+  const htmlBody = [
+    '<div style="margin:0;padding:0;background:#f8f4ec;font-family:Arial,Helvetica,sans-serif;color:#28241f;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8f4ec;margin:0;padding:28px 12px;">',
+    '<tr><td align="center">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fffaf2;border:1px solid rgba(78,90,66,0.18);">',
+    '<tr><td style="background:#4e5a42;padding:28px 30px;text-align:center;">',
+    '<div style="font-family:Georgia,serif;color:#fffaf2;font-size:34px;line-height:1.1;">Krisna &amp; Fernando</div>',
+    '</td></tr>',
+    '<tr><td style="padding:34px 30px;">',
+    '<div style="color:#b29a68;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Cancelamento registrado</div>',
+    '<h1 style="margin:12px 0 14px;font-family:Georgia,serif;font-size:30px;line-height:1.15;color:#28241f;font-weight:400;">Olá, ' + escapeHtml_(name) + ".</h1>",
+    '<p style="margin:0 0 18px;color:#756e62;font-size:16px;line-height:1.7;">Recebemos o cancelamento da sua presença.</p>',
+    '<p style="margin:0;color:#756e62;font-size:16px;line-height:1.7;">Agradecemos por nos avisar.</p>',
+    '</td></tr>',
+    '<tr><td style="padding:24px 30px 32px;text-align:center;">',
+    '<div style="height:1px;background:rgba(78,90,66,0.16);margin-bottom:20px;"></div>',
+    '<div style="font-family:Georgia,serif;color:#4e5a42;font-size:22px;">Krisna &amp; Fernando</div>',
+    '</td></tr>',
+    '</table>',
+    '</td></tr>',
+    '</table>',
+    '</div>'
+  ].join("");
+
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: "Cancelamento registrado - Krisna & Fernando",
+      name: "Krisna & Fernando",
+      htmlBody: htmlBody,
+      body: plainBody
+    });
+    return { sentAt: new Date(), error: "" };
+  } catch (error) {
+    return { sentAt: "", error: error.message || String(error) };
+  }
+}
+
 function buildRsvpEmailHtml_(guest, data) {
   const isConfirmed = data.attendance === "confirmed";
   const statusLabel = isConfirmed ? "Presença confirmada" : "Resposta registrada";
   const statusText = isConfirmed
     ? "Recebemos sua confirmação para o casamento de Krisna e Fernando."
-    : "Recebemos sua resposta para o casamento de Krisna e Fernando.";
+    : "Recebemos sua resposta informando que você não poderá comparecer.";
   const companionLine = Number(data.companionsConfirmed || 0) > 0
     ? '<tr><td style="padding:10px 0;color:#756e62;">Acompanhante</td><td style="padding:10px 0;text-align:right;color:#28241f;font-weight:700;">' + escapeHtml_(data.companionName || "Confirmado") + "</td></tr>"
+    : "";
+  const eventDetails = isConfirmed
+    ? [
+      '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid rgba(78,90,66,0.16);border-bottom:1px solid rgba(78,90,66,0.16);font-size:15px;">',
+      '<tr><td style="padding:14px 0 10px;color:#756e62;">Data</td><td style="padding:14px 0 10px;text-align:right;color:#28241f;font-weight:700;">29 de outubro de 2026</td></tr>',
+      '<tr><td style="padding:10px 0;color:#756e62;">Horário</td><td style="padding:10px 0;text-align:right;color:#28241f;font-weight:700;">15h30</td></tr>',
+      '<tr><td style="padding:10px 0;color:#756e62;">Local</td><td style="padding:10px 0;text-align:right;color:#28241f;font-weight:700;">Buffet La Maison</td></tr>',
+      companionLine,
+      "</table>"
+    ].join("")
     : "";
   const qrBlock = isConfirmed && data.qrCode
     ? [
@@ -969,6 +1413,14 @@ function buildRsvpEmailHtml_(guest, data) {
       '<p style="margin:10px auto 16px;max-width:420px;color:#756e62;font-size:14px;line-height:1.6;">Apresente este QR Code na entrada do evento para agilizar a validação do convite.</p>',
       '<img src="' + escapeHtml_(data.qrCode) + '" alt="QR Code de entrada" width="220" height="220" style="display:block;margin:0 auto 14px;border:10px solid #fffaf2;">',
       '<a href="' + escapeHtml_(data.checkinLink || "") + '" style="color:#4e5a42;font-size:12px;word-break:break-all;text-decoration:none;">' + escapeHtml_(data.checkinToken || "") + "</a>",
+      "</div>"
+    ].join("")
+    : "";
+  const cancellationBlock = isConfirmed && data.cancellationLink
+    ? [
+      '<div style="margin:18px 0 0;padding:16px;border:1px solid rgba(78,90,66,0.12);background:rgba(248,244,236,0.52);">',
+      '<p style="margin:0 0 8px;color:#756e62;font-size:13px;line-height:1.6;">Se você precisar cancelar sua presença, use o link abaixo. O QR Code será desativado após o cancelamento.</p>',
+      '<a href="' + escapeHtml_(data.cancellationLink) + '" style="color:#4e5a42;font-size:13px;font-weight:700;text-decoration:none;">Cancelar minha presença</a>',
       "</div>"
     ].join("")
     : "";
@@ -986,13 +1438,9 @@ function buildRsvpEmailHtml_(guest, data) {
     '<div style="color:#b29a68;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">' + statusLabel + "</div>",
     '<h1 style="margin:12px 0 14px;font-family:Georgia,serif;font-size:30px;line-height:1.15;color:#28241f;font-weight:400;">Olá, ' + escapeHtml_(guest.name) + ".</h1>",
     '<p style="margin:0 0 22px;color:#756e62;font-size:16px;line-height:1.7;">' + statusText + "</p>",
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid rgba(78,90,66,0.16);border-bottom:1px solid rgba(78,90,66,0.16);font-size:15px;">',
-    '<tr><td style="padding:14px 0 10px;color:#756e62;">Data</td><td style="padding:14px 0 10px;text-align:right;color:#28241f;font-weight:700;">29 de outubro de 2026</td></tr>',
-    '<tr><td style="padding:10px 0;color:#756e62;">Horário</td><td style="padding:10px 0;text-align:right;color:#28241f;font-weight:700;">15h30</td></tr>',
-    '<tr><td style="padding:10px 0;color:#756e62;">Local</td><td style="padding:10px 0;text-align:right;color:#28241f;font-weight:700;">Buffet La Maison</td></tr>',
-    companionLine,
-    "</table>",
+    eventDetails,
     qrBlock,
+    cancellationBlock,
     '<p style="margin:24px 0 0;color:#756e62;font-size:15px;line-height:1.7;">' + (isConfirmed ? "Nos vemos no grande dia." : "Agradecemos por nos avisar.") + "</p>",
     '</td></tr>',
     '<tr><td style="padding:24px 30px 32px;text-align:center;">',
@@ -1014,19 +1462,28 @@ function buildRsvpEmailText_(guest, data) {
     "",
     isConfirmed
       ? "Recebemos sua confirmação para o casamento de Krisna e Fernando."
-      : "Recebemos sua resposta para o casamento de Krisna e Fernando.",
-    "",
-    "Data: 29 de outubro de 2026",
-    "Horário: 15h30",
-    "Local: Buffet La Maison"
+      : "Recebemos sua resposta informando que você não poderá comparecer."
   ];
 
-  if (Number(data.companionsConfirmed || 0) > 0) {
+  if (isConfirmed) {
+    lines.push(
+      "",
+      "Data: 29 de outubro de 2026",
+      "Horário: 15h30",
+      "Local: Buffet La Maison"
+    );
+  }
+
+  if (isConfirmed && Number(data.companionsConfirmed || 0) > 0) {
     lines.push("Acompanhante: " + (data.companionName || "Confirmado"));
   }
 
   if (isConfirmed && data.checkinToken) {
     lines.push("", "QR Code de entrada: " + data.checkinLink, "Código: " + data.checkinToken);
+  }
+
+  if (isConfirmed && data.cancellationLink) {
+    lines.push("", "Se precisar cancelar sua presença, use este link: " + data.cancellationLink);
   }
 
   lines.push("", isConfirmed ? "Nos vemos no grande dia." : "Agradecemos por nos avisar.", "", "Krisna & Fernando");

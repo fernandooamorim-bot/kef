@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gestão de Convidados | Krisna & Fernando</title>
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#4e5a42">
+    <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="css/base.css?v=stability-20260804">
+    <link rel="stylesheet" href="css/admin.css?v=stability-20260804">
+  </head>
+  <body class="admin-page">
+    <main class="admin-shell">
+      <section class="admin-login" id="adminLogin">
+        <img src="assets/brand/monograma-small.png" alt="Monograma Krisna e Fernando">
+        <p>Gestão de convidados</p>
+        <h1>Krisna & Fernando</h1>
+        <form id="adminLoginForm">
+          <label>
+            <span>Usuário</span>
+            <input name="username" autocomplete="username" required>
+          </label>
+          <label>
+            <span>Senha</span>
+            <input name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button class="admin-button" type="submit">Entrar</button>
+          <p class="admin-status" id="adminLoginStatus" role="status"></p>
+        </form>
+      </section>
+
+      <section class="admin-app" id="adminApp" hidden>
+        <header class="admin-header">
+          <div>
+            <p>Gestão de convidados</p>
+            <strong id="adminOperatorName">Equipe</strong>
+          </div>
+          <button type="button" id="adminLogoutButton">Sair</button>
+        </header>
+
+        <section class="admin-summary" id="adminSummary"></section>
+
+        <section class="admin-panel">
+          <div class="admin-panel__header">
+            <div>
+              <p>Lista</p>
+              <h2>Status dos convidados</h2>
+            </div>
+            <button class="admin-button admin-button--small" type="button" id="refreshAdminButton">Atualizar</button>
+          </div>
+
+          <div class="admin-filters" id="adminFilters">
+            <button type="button" data-filter="all" class="is-active">Todos</button>
+            <button type="button" data-filter="confirmed">Confirmados</button>
+            <button type="button" data-filter="pending">Faltam</button>
+            <button type="button" data-filter="declined">Não vão</button>
+            <button type="button" data-filter="cancelled">Cancelados</button>
+          </div>
+
+          <label class="admin-search">
+            <span>Buscar</span>
+            <input id="adminSearch" autocomplete="off" placeholder="Nome, grupo ou telefone">
+          </label>
+
+          <div class="admin-list" id="adminGuestList"></div>
+        </section>
+
+        <section class="admin-panel">
+          <div class="admin-panel__header">
+            <div>
+              <p>Gestão avulsa</p>
+              <h2>Criar convidado com QR</h2>
+            </div>
+          </div>
+
+          <form class="admin-create" id="adminCreateForm">
+            <label>
+              <span>Nome</span>
+              <input name="name" required>
+            </label>
+            <label>
+              <span>Grupo</span>
+              <input name="group" value="Avulso">
+            </label>
+            <label>
+              <span>Telefone</span>
+              <input name="phone" autocomplete="tel">
+            </label>
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" autocomplete="email">
+            </label>
+            <label>
+              <span>Acompanhante</span>
+              <select name="companionsConfirmed">
+                <option value="0">Sem acompanhante</option>
+                <option value="1">Com acompanhante</option>
+              </select>
+            </label>
+            <label id="adminCompanionNameField" hidden>
+              <span>Nome do acompanhante</span>
+              <input name="companionName">
+            </label>
+            <button class="admin-button" type="submit">Gerar convidado e QR</button>
+            <p class="admin-status" id="adminCreateStatus" role="status"></p>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script src="js/config.js?v=stability-20260804"></script>
+    <script src="js/cache.js?v=stability-20260804"></script>
+    <script src="js/api.js?v=stability-20260804"></script>
+    <script src="js/admin.js?v=stability-20260804"></script>
+  </body>
+</html>

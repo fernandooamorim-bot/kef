@@ -9,6 +9,25 @@ window.WeddingApi = {
     }
   },
 
+  async requestJsonWithRetry(url, options, fallbackMessage, attempts = 2) {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await this.requestJson(url, options, fallbackMessage);
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts) await this.delay(700 * attempt);
+      }
+    }
+
+    throw lastError || new Error(fallbackMessage);
+  },
+
+  delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  },
+
   async getPublicConfig() {
     const config = window.WEDDING_CONFIG;
     const cached = window.WeddingCache.read(config.cache.publicConfigKey);
@@ -18,7 +37,7 @@ window.WeddingApi = {
     }
 
     try {
-      const { response, payload } = await this.requestJson(`${config.appScriptUrl}?action=config`, {
+      const { response, payload } = await this.requestJsonWithRetry(`${config.appScriptUrl}?action=config`, {
         method: "GET",
         headers: { Accept: "application/json" }
       }, "Não foi possível carregar as configurações agora.");
@@ -49,7 +68,7 @@ window.WeddingApi = {
     }
 
     const url = `${config.appScriptUrl}?action=guests&q=${encodeURIComponent(term)}`;
-    const { response, payload } = await this.requestJson(url, {
+    const { response, payload } = await this.requestJsonWithRetry(url, {
       method: "GET",
       headers: { Accept: "application/json" }
     }, "Não foi possível buscar a lista de convidados agora. Verifique sua internet e tente novamente.");
@@ -91,7 +110,7 @@ window.WeddingApi = {
     }
 
     const url = `${config.appScriptUrl}?action=invite&t=${encodeURIComponent(cleanToken)}`;
-    const { response, payload } = await this.requestJson(url, {
+    const { response, payload } = await this.requestJsonWithRetry(url, {
       method: "GET",
       headers: { Accept: "application/json" }
     }, "Não foi possível carregar este convite agora. Verifique sua internet e tente novamente.");
@@ -102,6 +121,40 @@ window.WeddingApi = {
       throw new Error("Convite não encontrado.");
     }
     return payload.data.invite;
+  },
+
+  async getCancellation(token) {
+    const config = window.WEDDING_CONFIG;
+    const cleanToken = String(token || "").trim();
+    if (!cleanToken) {
+      throw new Error("Link de cancelamento não encontrado.");
+    }
+
+    const url = `${config.appScriptUrl}?action=cancel_info&t=${encodeURIComponent(cleanToken)}`;
+    const { response, payload } = await this.requestJsonWithRetry(url, {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    }, "Não foi possível carregar este cancelamento agora. Verifique sua internet e tente novamente.");
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || "Não foi possível carregar este cancelamento.");
+    }
+    if (!payload.data?.cancellation) {
+      throw new Error("Link de cancelamento não encontrado.");
+    }
+    return payload.data.cancellation;
+  },
+
+  async cancelRsvp(data) {
+    const config = window.WEDDING_CONFIG;
+    const { response, payload } = await this.requestJson(config.appScriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "cancel_rsvp", data })
+    }, "Não foi possível cancelar sua presença agora. Verifique sua internet e tente novamente.");
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || "Não foi possível cancelar sua presença.");
+    }
+    return payload.data;
   },
 
   async submitRsvp(data) {
@@ -166,6 +219,20 @@ window.WeddingApi = {
 
   async searchCheckinGuests(data) {
     return this.checkinRequest("checkin_search", data);
+  },
+
+  async getAdminSummary(credentials) {
+    return this.checkinRequest("admin_summary", {
+      ...credentials,
+      userAgent: navigator.userAgent
+    });
+  },
+
+  async createAdminGuest(data) {
+    return this.checkinRequest("admin_create_guest", {
+      ...data,
+      userAgent: navigator.userAgent
+    });
   },
 
   async submitGiftIntent(data) {
