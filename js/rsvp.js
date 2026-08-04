@@ -213,7 +213,6 @@ window.WeddingRsvp = {
       option.setAttribute("role", "option");
       option.innerHTML = `
         <strong>${this.escapeHtml(guest.name)}</strong>
-        <span>${this.escapeHtml(this.describeGuest(guest))}</span>
       `;
       option.addEventListener("click", () => this.selectGuest(guest));
       this.suggestions.appendChild(option);
@@ -467,12 +466,6 @@ window.WeddingRsvp = {
 
   updateStatus(message) {
     this.status.textContent = message;
-  },
-
-  describeGuest(guest) {
-    const companions = Number(guest.allowed_companions || 0);
-    const group = guest.group ? `${guest.group} · ` : "";
-    return companions > 0 ? `${group}com acompanhante` : (guest.group || "Convidado");
   },
 
   formatPhone(value) {
