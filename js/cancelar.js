@@ -31,7 +31,9 @@ window.WeddingCancel = {
 
   render() {
     this.name.textContent = this.cancellation.name || "Convidado";
-    this.companion.textContent = this.describeCompanion(this.cancellation);
+    const companionText = this.describeCompanion(this.cancellation);
+    this.companion.textContent = companionText;
+    this.companion.hidden = !companionText;
     this.loading.hidden = true;
     this.content.hidden = false;
   },
@@ -59,7 +61,7 @@ window.WeddingCancel = {
 
   describeCompanion(cancellation) {
     const count = Number(cancellation.companionsConfirmed || 0);
-    if (!count) return "Acompanhante: não incluído";
+    if (!count) return "";
     return cancellation.companionName ? `Acompanhante: ${cancellation.companionName}` : "Acompanhante: incluído";
   },
 

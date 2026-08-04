@@ -472,7 +472,7 @@ window.WeddingRsvp = {
   describeGuest(guest) {
     const companions = Number(guest.allowed_companions || 0);
     const group = guest.group ? `${guest.group} · ` : "";
-    return `${group}${companions > 0 ? "com acompanhante" : "sem acompanhante"}`;
+    return companions > 0 ? `${group}com acompanhante` : (guest.group || "Convidado");
   },
 
   formatPhone(value) {

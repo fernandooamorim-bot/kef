@@ -358,7 +358,7 @@ function handleRsvp_(data) {
   const allowedCompanions = Number(guest.allowed_companions || 0);
   const companionsConfirmed = Number(data.companionsConfirmed || 0);
   if (companionsConfirmed > allowedCompanions) {
-    return jsonResponse(false, null, "Este convite não possui acompanhante disponível.");
+    return jsonResponse(false, null, "Não foi possível registrar a quantidade de pessoas informada.");
   }
 
   if (companionsConfirmed > 0 && !data.companionName) {

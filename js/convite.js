@@ -47,7 +47,9 @@ window.WeddingInvite = {
   renderInvite(invite) {
     const event = invite.event || {};
     this.name.textContent = invite.name || "Convidado";
-    this.companion.textContent = this.describeCompanion(invite);
+    const companionText = this.describeCompanion(invite);
+    this.companion.textContent = companionText;
+    this.companion.hidden = !companionText;
     this.date.textContent = event.date || "29 de outubro de 2026";
     this.time.textContent = event.time || "15h30";
     this.venue.textContent = event.venue || "Buffet La Maison";
@@ -65,7 +67,7 @@ window.WeddingInvite = {
 
   describeCompanion(invite) {
     const count = Number(invite.companionsConfirmed || 0);
-    if (!count) return "Acompanhante: não incluído";
+    if (!count) return "";
     return invite.companionName ? `Acompanhante: ${invite.companionName}` : "Acompanhante: incluído";
   },
 
@@ -132,8 +134,11 @@ window.WeddingInvite = {
     ctx.fillStyle = "#28241f";
     this.drawText(ctx, invite.name || "Convidado", width / 2, 520, 76, "Georgia");
 
-    ctx.fillStyle = "#756e62";
-    this.drawText(ctx, this.describeCompanion(invite), width / 2, 585, 32, "Arial");
+    const companionText = this.describeCompanion(invite);
+    if (companionText) {
+      ctx.fillStyle = "#756e62";
+      this.drawText(ctx, companionText, width / 2, 585, 32, "Arial");
+    }
 
     this.drawInfo(ctx, "Data", event.date || "29 de outubro de 2026", 150, 690);
     this.drawInfo(ctx, "Horário", event.time || "15h30", 560, 690);
