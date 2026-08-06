@@ -383,6 +383,12 @@
   box-shadow: 0 0 0 3px rgba(178, 154, 104, 0.18);
 }
 
+.gift-dialog__content input[aria-invalid="true"],
+.gift-dialog__content textarea[aria-invalid="true"] {
+  border-color: #a64242;
+  box-shadow: 0 0 0 3px rgba(166, 66, 66, 0.14);
+}
+
 .rsvp-search {
   position: relative;
   display: grid;

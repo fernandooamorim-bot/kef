@@ -124,6 +124,11 @@ window.WeddingGifts = {
       if (event.target.name === "paymentMethod") this.updatePaymentHelp();
     });
 
+    this.form.addEventListener("input", (event) => {
+      event.target.removeAttribute("aria-invalid");
+      if (this.status.textContent) this.status.textContent = "";
+    });
+
     this.copyPixButton?.addEventListener("click", () => this.copyPixCode());
     this.pixQrImage?.addEventListener("load", () => {
       this.pixQrImage.hidden = false;
@@ -162,18 +167,9 @@ window.WeddingGifts = {
 
   async submitGift() {
     const data = this.readForm();
-    if (!data.name || !data.phone) {
-      this.status.textContent = "Preencha pelo menos nome e telefone.";
-      return;
-    }
-
-    if (data.customAmount && !data.customGiftTitle) {
-      this.status.textContent = "Dê um nome para o presente misterioso.";
-      return;
-    }
-
-    if (data.customAmount && data.amount <= 0) {
-      this.status.textContent = "Informe o valor do presente misterioso.";
+    const validation = this.validateFormData(data);
+    if (!validation.valid) {
+      this.showValidationError(validation.message, validation.field);
       return;
     }
 
@@ -215,6 +211,51 @@ window.WeddingGifts = {
     } finally {
       this.setSubmitting(false);
     }
+  },
+
+  validateFormData(data) {
+    if (data.customAmount && !data.customGiftTitle) {
+      return {
+        valid: false,
+        field: "customGiftTitle",
+        message: "Dê um nome para o presente misterioso."
+      };
+    }
+
+    if (data.customAmount && data.amount <= 0) {
+      return {
+        valid: false,
+        field: "customAmount",
+        message: "Informe o valor do presente misterioso."
+      };
+    }
+
+    if (!data.name) {
+      return {
+        valid: false,
+        field: "name",
+        message: "Informe seu nome para registrarmos o presente."
+      };
+    }
+
+    if (!data.phone) {
+      return {
+        valid: false,
+        field: "phone",
+        message: "Informe seu telefone para registrarmos o presente."
+      };
+    }
+
+    return { valid: true };
+  },
+
+  showValidationError(message, fieldName) {
+    this.status.textContent = message;
+    const field = fieldName ? this.form.elements[fieldName] : null;
+    if (!field) return;
+    field.setAttribute("aria-invalid", "true");
+    field.focus({ preventScroll: true });
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
   },
 
   setPaymentMethod(method) {
