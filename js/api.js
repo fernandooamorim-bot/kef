@@ -1,15 +1,34 @@
 window.WeddingApi = {
-  async requestJson(url, options, fallbackMessage) {
+  async requestJson(url, options = {}, fallbackMessage) {
+    const timeoutMs = options.timeoutMs || 14000;
+    const requestOptions = { ...options };
+    delete requestOptions.timeoutMs;
+    const controller = "AbortController" in window ? new AbortController() : null;
+    const timer = controller
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
     try {
-      const response = await fetch(url, options);
-      const payload = await response.json();
+      const response = await fetch(url, {
+        ...requestOptions,
+        signal: controller?.signal
+      });
+      const text = await response.text();
+      let payload = null;
+      try {
+        payload = text ? JSON.parse(text) : {};
+      } catch (error) {
+        throw new Error("Resposta inválida do servidor.");
+      }
       return { response, payload };
     } catch (error) {
       throw new Error(fallbackMessage || "Não foi possível conectar ao sistema agora. Verifique sua internet e tente novamente.");
+    } finally {
+      if (timer) window.clearTimeout(timer);
     }
   },
 
-  async requestJsonWithRetry(url, options, fallbackMessage, attempts = 2) {
+  async requestJsonWithRetry(url, options, fallbackMessage, attempts = 3) {
     let lastError = null;
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -17,7 +36,7 @@ window.WeddingApi = {
         return await this.requestJson(url, options, fallbackMessage);
       } catch (error) {
         lastError = error;
-        if (attempt < attempts) await this.delay(700 * attempt);
+        if (attempt < attempts) await this.delay(550 * attempt);
       }
     }
 
@@ -31,18 +50,23 @@ window.WeddingApi = {
   async getPublicConfig() {
     const config = window.WEDDING_CONFIG;
     const cached = window.WeddingCache.read(config.cache.publicConfigKey);
+    const cachedIsSafe = this.hasUsableGiftList(cached);
 
     if (!config.appScriptUrl) {
-      return cached || config.fallbackData;
+      return cachedIsSafe ? cached : config.fallbackData;
     }
 
     try {
       const { response, payload } = await this.requestJsonWithRetry(`${config.appScriptUrl}?action=config`, {
         method: "GET",
-        headers: { Accept: "application/json" }
+        headers: { Accept: "application/json" },
+        timeoutMs: 11000
       }, "Não foi possível carregar as configurações agora.");
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || "Não foi possível carregar as configurações.");
+      }
+      if (!this.hasUsableGiftList(payload.data)) {
+        throw new Error("Configuração recebida sem lista de presentes válida.");
       }
       window.WeddingCache.write(
         config.cache.publicConfigKey,
@@ -51,8 +75,19 @@ window.WeddingApi = {
       );
       return payload.data;
     } catch (error) {
-      return cached || config.fallbackData;
+      if (cachedIsSafe) return cached;
+      window.WeddingCache.remove(config.cache.publicConfigKey);
+      return config.fallbackData;
     }
+  },
+
+  hasUsableGiftList(data) {
+    return Array.isArray(data?.gifts) && data.gifts.some((gift) => {
+      const enabled = gift.enabled === undefined || gift.enabled === null || gift.enabled === "" || String(gift.enabled).toLowerCase() !== "false";
+      const amount = Number(gift.amount || 0);
+      const customAmount = gift.custom_amount === true || gift.customAmount === true || String(gift.custom_amount || gift.customAmount || "").toLowerCase() === "true";
+      return enabled && (gift.gift_id || gift.id) && (gift.title || gift.gift_title) && (amount > 0 || customAmount);
+    });
   },
 
   async searchGuests(query) {
@@ -70,7 +105,8 @@ window.WeddingApi = {
     const url = `${config.appScriptUrl}?action=guests&q=${encodeURIComponent(term)}`;
     const { response, payload } = await this.requestJsonWithRetry(url, {
       method: "GET",
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json" },
+      timeoutMs: 12000
     }, "Não foi possível buscar a lista de convidados agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       if (payload.error === "Ação GET não reconhecida.") {
@@ -112,7 +148,8 @@ window.WeddingApi = {
     const url = `${config.appScriptUrl}?action=invite&t=${encodeURIComponent(cleanToken)}`;
     const { response, payload } = await this.requestJsonWithRetry(url, {
       method: "GET",
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json" },
+      timeoutMs: 12000
     }, "Não foi possível carregar este convite agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível carregar este convite.");
@@ -133,7 +170,8 @@ window.WeddingApi = {
     const url = `${config.appScriptUrl}?action=cancel_info&t=${encodeURIComponent(cleanToken)}`;
     const { response, payload } = await this.requestJsonWithRetry(url, {
       method: "GET",
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json" },
+      timeoutMs: 12000
     }, "Não foi possível carregar este cancelamento agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível carregar este cancelamento.");
@@ -257,6 +295,6 @@ window.WeddingApi = {
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível registrar o presente.");
     }
-    return payload;
+    return payload.data || {};
   }
 };

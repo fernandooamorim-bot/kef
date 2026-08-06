@@ -313,7 +313,9 @@ function handlePublicConfig_(forceRefresh) {
   }
 
   const data = readPublicConfigData_();
-  cache.put(PUBLIC_CONFIG_CACHE_KEY, JSON.stringify(data), PUBLIC_CONFIG_CACHE_SECONDS);
+  if (hasUsablePublicConfig_(data)) {
+    cache.put(PUBLIC_CONFIG_CACHE_KEY, JSON.stringify(data), PUBLIC_CONFIG_CACHE_SECONDS);
+  }
   return jsonResponse(true, data);
 }
 
@@ -325,6 +327,16 @@ function readPublicConfigData_() {
     gallery: readTableSheet_(SHEETS.GALERIA),
     messages: readTableSheet_(SHEETS.MENSAGENS)
   };
+}
+
+function hasUsablePublicConfig_(data) {
+  const gifts = data && Array.isArray(data.gifts) ? data.gifts : [];
+  return gifts.some(function(gift) {
+    const enabled = isEnabled_(gift.enabled);
+    const amount = Number(gift.amount || 0);
+    const customAmount = gift.custom_amount === true || gift.customAmount === true || String(gift.custom_amount || gift.customAmount || "").toLowerCase() === "true";
+    return enabled && (gift.gift_id || gift.id) && (gift.title || gift.gift_title) && (amount > 0 || customAmount);
+  });
 }
 
 function handleRsvp_(data) {
@@ -552,12 +564,31 @@ function handleGuestSearch_(query) {
 }
 
 function handleGiftIntent_(data) {
-  if (!data.giftId || !data.giftTitle || !data.amount) {
+  if (!data.giftId) {
     return jsonResponse(false, null, "Presente inválido.");
   }
 
   if (!data.name || !data.phone) {
     return jsonResponse(false, null, "Nome e telefone são obrigatórios.");
+  }
+
+  const gift = findGiftById_(data.giftId);
+  if (!gift) {
+    return jsonResponse(false, null, "Este presente não está disponível no momento.");
+  }
+
+  const customAmount = isCustomGift_(gift);
+  const amount = customAmount ? Number(data.amount || 0) : Number(gift.amount || 0);
+  const officialGiftTitle = String(gift.title || gift.gift_title || data.giftTitle || "").trim();
+  const giftTitle = customAmount ? String(data.giftTitle || officialGiftTitle).trim() : officialGiftTitle;
+  const paymentUrl = data.paymentMethod === "card" ? String(gift.payment_url || "").trim() : "";
+
+  if (!giftTitle || amount <= 0) {
+    return jsonResponse(false, null, "Presente inválido.");
+  }
+
+  if (data.paymentMethod === "card" && !paymentUrl) {
+    return jsonResponse(false, null, "Este presente ainda não possui link de pagamento.");
   }
 
   const sheet = getOrCreateSheet_(SHEETS.PEDIDOS_PRESENTES, HEADERS.PEDIDOS_PRESENTES);
@@ -566,9 +597,9 @@ function handleGiftIntent_(data) {
   appendRecord_(sheet, {
     created_at: new Date(),
     order_id: orderId,
-    gift_id: data.giftId,
-    gift_title: data.giftTitle,
-    amount: Number(data.amount),
+    gift_id: gift.gift_id || data.giftId,
+    gift_title: giftTitle,
+    amount: amount,
     giver_name: data.name,
     name: data.name,
     giver_phone: data.phone,
@@ -577,9 +608,9 @@ function handleGiftIntent_(data) {
     email: data.email || "",
     message: data.message || "",
     status: data.paymentMethod ? "aguardando_pagamento" : "created",
-    provider: data.paymentMethod === "pix" ? "pix" : data.paymentUrl ? "pagbank" : "",
+    provider: data.paymentMethod === "pix" ? "pix" : paymentUrl ? "pagbank" : "",
     provider_payment_id: "",
-    payment_url: data.paymentUrl || "",
+    payment_url: paymentUrl,
     paid_at: "",
     source: data.source || "site",
     userAgent: data.userAgent || ""
@@ -588,6 +619,9 @@ function handleGiftIntent_(data) {
   return jsonResponse(true, {
     orderId,
     status: data.paymentMethod ? "aguardando_pagamento" : "created",
+    giftTitle,
+    amount,
+    paymentUrl,
     message: data.paymentMethod
       ? "Registro salvo. Abrindo pagamento..."
       : "Presente e mensagem registrados com sucesso."
@@ -922,6 +956,19 @@ function findGuestById_(guestId) {
   return guests.find(function(guest) {
     return String(guest.guest_id || "").trim() === id;
   }) || null;
+}
+
+function findGiftById_(giftId) {
+  const id = String(giftId || "").trim();
+  if (!id) return null;
+  const gifts = readTableSheet_(SHEETS.PRESENTES);
+  return gifts.find(function(gift) {
+    return String(gift.gift_id || gift.id || "").trim() === id && isEnabled_(gift.enabled);
+  }) || null;
+}
+
+function isCustomGift_(gift) {
+  return gift.custom_amount === true || gift.customAmount === true || String(gift.custom_amount || gift.customAmount || "").toLowerCase() === "true";
 }
 
 function getOrCreateSheet_(name, headers) {

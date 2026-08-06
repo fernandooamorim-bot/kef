@@ -51,7 +51,7 @@ window.WeddingGifts = {
       .filter((gift) => this.isEnabled(gift.enabled))
       .map((gift) => ({
         id: gift.gift_id || gift.id,
-        title: gift.title || "",
+        title: gift.title || gift.gift_title || "",
         description: gift.description || "",
         image: gift.image || window.WEDDING_CONFIG.defaultGiftImage,
         imagePosition: gift.image_position || gift.posicao_imagem || gift.imagePosition || "center center",
@@ -81,7 +81,7 @@ window.WeddingGifts = {
     const fragment = document.createDocumentFragment();
     this.gifts.forEach((gift) => {
       const article = document.createElement("article");
-      article.className = "gift-card reveal";
+      article.className = "gift-card reveal is-visible";
       article.style.setProperty("--gift-image-position", gift.imagePosition);
       article.innerHTML = `
         <img class="gift-card__image" src="${gift.image}" alt="" loading="lazy" decoding="async">
@@ -200,12 +200,13 @@ window.WeddingGifts = {
         window.WeddingProcessing?.close();
         window.setTimeout(() => this.showPixDialog(data), 250);
       } else {
+        const paymentUrl = result.paymentUrl || data.paymentUrl;
         window.WeddingProcessing?.show({
           title: "Abrindo pagamento",
           message: "Vamos encaminhar você para o pagamento com cartão."
         });
         window.setTimeout(() => {
-          window.location.href = data.paymentUrl;
+          window.location.href = paymentUrl;
         }, 550);
       }
     } catch (error) {
