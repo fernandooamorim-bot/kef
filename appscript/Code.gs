@@ -572,12 +572,13 @@ function handleGiftIntent_(data) {
     return jsonResponse(false, null, "Nome e telefone são obrigatórios.");
   }
 
-  const gift = findGiftById_(data.giftId);
+  const incomingCustomAmount = data.customAmount === true || String(data.customAmount || "").toLowerCase() === "true";
+  const gift = findGiftById_(data.giftId) || createCustomGiftFromRequest_(data, incomingCustomAmount);
   if (!gift) {
     return jsonResponse(false, null, "Este presente não está disponível no momento.");
   }
 
-  const customAmount = isCustomGift_(gift);
+  const customAmount = incomingCustomAmount || isCustomGift_(gift);
   const amount = customAmount ? Number(data.amount || 0) : Number(gift.amount || 0);
   const officialGiftTitle = String(gift.title || gift.gift_title || data.giftTitle || "").trim();
   const giftTitle = customAmount ? String(data.giftTitle || officialGiftTitle).trim() : officialGiftTitle;
@@ -965,6 +966,21 @@ function findGiftById_(giftId) {
   return gifts.find(function(gift) {
     return String(gift.gift_id || gift.id || "").trim() === id && isEnabled_(gift.enabled);
   }) || null;
+}
+
+function createCustomGiftFromRequest_(data, customAmount) {
+  if (!customAmount) return null;
+  const amount = Number(data.amount || 0);
+  const title = String(data.giftTitle || "").trim();
+  if (!data.giftId || !title || amount <= 0) return null;
+  return {
+    gift_id: data.giftId,
+    title: title,
+    amount: amount,
+    payment_url: "",
+    customAmount: true,
+    enabled: "TRUE"
+  };
 }
 
 function isCustomGift_(gift) {
