@@ -129,6 +129,10 @@ window.WeddingGifts = {
       if (this.status.textContent) this.status.textContent = "";
     });
 
+    this.form.elements.customAmount?.addEventListener("blur", () => {
+      this.formatCustomAmountField();
+    });
+
     this.copyPixButton?.addEventListener("click", () => this.copyPixCode());
     this.pixQrImage?.addEventListener("load", () => {
       this.pixQrImage.hidden = false;
@@ -343,6 +347,7 @@ window.WeddingGifts = {
     return {
       giftId: gift.id,
       giftTitle: gift.customAmount ? customGiftTitle || gift.title : gift.title,
+      customGiftTitle,
       amount: gift.customAmount ? customAmount : gift.amount,
       customAmount: gift.customAmount,
       paymentMethod,
@@ -357,18 +362,37 @@ window.WeddingGifts = {
   },
 
   parseCurrency(value) {
-    const raw = String(value || "")
+    let raw = String(value || "")
       .replace(/[^\d,.-]/g, "")
       .trim();
-    const hasComma = raw.includes(",");
-    const hasDot = raw.includes(".");
-    const normalized = hasComma
-      ? raw.replace(/\./g, "").replace(",", ".")
-      : hasDot
-        ? raw
-        : raw.replace(/[^\d]/g, "");
+
+    const lastComma = raw.lastIndexOf(",");
+    const lastDot = raw.lastIndexOf(".");
+    const decimalSeparator = lastComma > lastDot ? "," : lastDot > -1 ? "." : "";
+
+    let normalized = raw;
+    if (decimalSeparator) {
+      const parts = raw.split(decimalSeparator);
+      const decimal = parts.pop();
+      const integer = parts.join("").replace(/[^\d]/g, "");
+      normalized = `${integer}.${decimal.replace(/[^\d]/g, "")}`;
+    } else {
+      normalized = raw.replace(/[^\d]/g, "");
+    }
+
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
+  },
+
+  formatCustomAmountField() {
+    const field = this.form.elements.customAmount;
+    if (!field || !field.value.trim()) return;
+    const amount = this.parseCurrency(field.value);
+    if (amount <= 0) return;
+    field.value = amount.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   },
 
   formatCurrency(value) {
