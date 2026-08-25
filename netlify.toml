@@ -38,6 +38,16 @@
     X-Content-Type-Options = "nosniff"
 
 [[redirects]]
+  from = "/politica-de-privacidade"
+  to = "/politica-de-privacidade.html"
+  status = 200
+
+[[redirects]]
+  from = "/termos-de-uso"
+  to = "/termos-de-uso.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
