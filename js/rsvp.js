@@ -2,7 +2,11 @@ window.WeddingRsvp = {
   selectedGuest: null,
   searchTimer: null,
   searchToken: 0,
-  availability: { open: true, message: "" },
+  availability: {
+    open: false,
+    title: "Confirmações em breve.",
+    message: "As confirmações de presença serão liberadas em breve."
+  },
 
   init() {
     this.form = document.getElementById("rsvpForm");
@@ -25,9 +29,9 @@ window.WeddingRsvp = {
     this.email = this.form.elements.email;
     this.submitButton = this.form.querySelector('button[type="submit"]');
 
-    this.restoreDraft();
     this.bindEvents();
     this.applyConfig(window.WEDDING_CONFIG.rsvp || {});
+    if (this.availability.open) this.restoreDraft();
     this.updateSubmitState();
   },
 

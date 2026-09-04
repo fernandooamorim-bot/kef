@@ -7,9 +7,9 @@ window.WEDDING_CONFIG = {
   appScriptUrl: "https://script.google.com/macros/s/AKfycbwW45afpmWx7ExUNY0WgiY7mlYoIqRYqmCmhamh3Wsgf9LrItexrSlYGwnX-KHHcaIZlw/exec",
   rsvp: {
     enabled: true,
-    opensAt: "",
-    closesAt: "",
-    closedMessage: ""
+    opensAt: "2026-09-29T00:00:00-03:00",
+    closesAt: "2026-10-30T23:59:00-03:00",
+    closedMessage: "As confirmações de presença estarão disponíveis a partir de 29 de setembro de 2026."
   },
   payment: {
     pix: {
@@ -19,7 +19,7 @@ window.WEDDING_CONFIG = {
     }
   },
   cache: {
-    publicConfigKey: "kf_public_config_v3",
+    publicConfigKey: "kf_public_config_v4",
     publicConfigTtlMinutes: 5,
     introSeenKey: "kf_intro_seen_v1",
     rsvpDraftKey: "kf_rsvp_draft_v1"
