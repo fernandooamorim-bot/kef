@@ -37,11 +37,20 @@ window.WeddingRsvp = {
 
   applyConfig(config = {}) {
     const fallback = window.WEDDING_CONFIG.rsvp || {};
+    const configuredValue = (...keys) => {
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(config, key)) return config[key];
+      }
+      return undefined;
+    };
+    const opensAt = configuredValue("rsvp_open_at", "rsvp_abre_em", "opensAt");
+    const closesAt = configuredValue("rsvp_close_at", "rsvp_fecha_em", "closesAt");
+    const closedMessage = configuredValue("rsvp_closed_message", "mensagem_rsvp_fechado", "closedMessage");
     const settings = {
       enabled: this.parseBoolean(config.rsvp_enabled ?? config.enabled ?? fallback.enabled, true),
-      opensAt: config.rsvp_open_at || config.rsvp_abre_em || config.opensAt || fallback.opensAt || "",
-      closesAt: config.rsvp_close_at || config.rsvp_fecha_em || config.closesAt || fallback.closesAt || "",
-      closedMessage: config.rsvp_closed_message || config.mensagem_rsvp_fechado || config.closedMessage || fallback.closedMessage || ""
+      opensAt: opensAt === undefined ? fallback.opensAt || "" : opensAt,
+      closesAt: closesAt === undefined ? fallback.closesAt || "" : closesAt,
+      closedMessage: closedMessage === undefined ? fallback.closedMessage || "" : closedMessage
     };
     const state = this.getAvailability(settings);
     this.availability = state;
