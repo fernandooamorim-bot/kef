@@ -2,6 +2,8 @@ window.WeddingAdmin = {
   credentials: null,
   guests: [],
   filter: "all",
+  importRows: [],
+  importId: "",
 
   init() {
     this.loginPanel = document.getElementById("adminLogin");
@@ -18,6 +20,14 @@ window.WeddingAdmin = {
     this.createForm = document.getElementById("adminCreateForm");
     this.createStatus = document.getElementById("adminCreateStatus");
     this.companionNameField = document.getElementById("adminCompanionNameField");
+    this.importForm = document.getElementById("adminImportForm");
+    this.importInput = document.getElementById("adminImportInput");
+    this.importStatus = document.getElementById("adminImportStatus");
+    this.importPreview = document.getElementById("adminImportPreview");
+    this.importSummary = document.getElementById("adminImportSummary");
+    this.importRowsContainer = document.getElementById("adminImportRows");
+    this.importConfirmButton = document.getElementById("adminImportConfirm");
+    this.importCancelButton = document.getElementById("adminImportCancel");
 
     this.bindEvents();
   },
@@ -38,6 +48,10 @@ window.WeddingAdmin = {
       this.companionNameField.hidden = this.createForm.elements.companionsConfirmed.value !== "1";
     });
     this.createForm.addEventListener("submit", (event) => this.createGuest(event));
+    this.importForm.addEventListener("submit", (event) => this.previewImport(event));
+    this.importInput.addEventListener("input", () => this.clearImportPreview());
+    this.importConfirmButton.addEventListener("click", () => this.confirmImport());
+    this.importCancelButton.addEventListener("click", () => this.clearImportPreview(true));
   },
 
   async login(event) {
@@ -65,6 +79,7 @@ window.WeddingAdmin = {
   logout() {
     this.credentials = null;
     this.guests = [];
+    this.clearImportPreview(true);
     this.app.hidden = true;
     this.loginPanel.hidden = false;
     this.loginForm.reset();
@@ -167,6 +182,136 @@ window.WeddingAdmin = {
     } catch (error) {
       this.createStatus.textContent = error.message || "Não foi possível criar convidado.";
     }
+  },
+
+  previewImport(event) {
+    event.preventDefault();
+    const rows = this.parseImport(this.importInput.value);
+    if (!rows.length) {
+      this.importStatus.textContent = "Cole pelo menos um nome para revisar.";
+      this.clearImportPreview();
+      return;
+    }
+
+    const existingNames = new Set(this.guests.map((guest) => this.normalize(guest.name)).filter(Boolean));
+    const seenNames = new Map();
+    rows.forEach((row) => {
+      const normalized = this.normalize(row.name);
+      if (normalized) {
+        seenNames.set(normalized, (seenNames.get(normalized) || 0) + 1);
+      }
+    });
+
+    rows.forEach((row) => {
+      const normalized = this.normalize(row.name);
+      if (row.name.length === 1 && !row.error) row.warnings.push("Nome muito curto: confira se está completo.");
+      if (row.companions > 5 && !row.error) row.warnings.push("Quantidade alta de acompanhantes: confira o número.");
+      if (normalized && seenNames.get(normalized) > 1) row.warnings.push("Nome repetido nesta importação.");
+      if (normalized && existingNames.has(normalized)) row.warnings.push("Nome já existente na lista de convidados.");
+    });
+
+    this.importRows = rows;
+    this.importId = this.createImportId();
+    const errors = rows.filter((row) => row.error).length;
+    const warnings = rows.filter((row) => row.warnings.length).length;
+    const people = rows.reduce((total, row) => total + (row.error ? 0 : 1 + row.companions), 0);
+    this.importSummary.innerHTML = [
+      ["Convidados", rows.length],
+      ["Pessoas previstas", people],
+      ["Atenções", warnings],
+      ["Corrigir", errors]
+    ].map(([label, value]) => `<div><span>${this.escape(label)}</span><strong>${this.escape(value)}</strong></div>`).join("");
+    this.importRowsContainer.innerHTML = rows.map((row) => `
+      <article class="admin-import-row admin-import-row--${row.error ? "error" : row.warnings.length ? "warning" : "ready"}">
+        <span>${this.escape(row.line)}</span>
+        <strong>${this.escape(row.name || "Nome não identificado")}</strong>
+        <em>${this.escape(row.companions)} acompanhante${row.companions === 1 ? "" : "s"}</em>
+        <p>${this.escape(row.error || row.warnings.join(" ") || "Pronto para importar.")}</p>
+      </article>
+    `).join("");
+    this.importPreview.hidden = false;
+    this.importConfirmButton.disabled = Boolean(errors);
+    this.importStatus.textContent = errors
+      ? "Corrija as linhas destacadas antes de confirmar."
+      : warnings
+        ? "Confira os alertas. Você poderá importar se estiver tudo certo."
+        : "Prévia pronta. Confirme a importação quando desejar.";
+  },
+
+  parseImport(value) {
+    return String(value || "").replace(/\r/g, "").split("\n")
+      .map((source, index) => this.parseImportLine(source, index + 1))
+      .filter((row) => row.source.trim());
+  },
+
+  parseImportLine(source, line) {
+    const raw = String(source || "").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+    let name = raw;
+    let companionsRaw = "";
+    if (raw.includes("\t")) {
+      const columns = raw.split(/\t+/);
+      name = columns.shift() || "";
+      companionsRaw = columns.find((column) => column.trim() !== "") || "";
+    } else if (raw.includes("|")) {
+      const separator = raw.indexOf("|");
+      name = raw.slice(0, separator);
+      companionsRaw = raw.slice(separator + 1);
+    } else {
+      const match = raw.match(/^(.*?)(?:\s{2,})(-?\d+)\s*$/);
+      if (match) {
+        name = match[1];
+        companionsRaw = match[2];
+      }
+    }
+    name = name.replace(/\s+/g, " ").trim();
+    companionsRaw = companionsRaw.trim();
+    const row = { source, line, name, companions: 0, warnings: [], error: "" };
+    if (!name || !/[A-Za-zÀ-ÿ]/.test(name)) {
+      row.error = "Informe um nome válido.";
+      return row;
+    }
+    if (companionsRaw) {
+      if (!/^\d+$/.test(companionsRaw)) {
+        row.error = "Acompanhantes deve ser um número inteiro a partir de 0.";
+        return row;
+      }
+      row.companions = Number(companionsRaw);
+      if (row.companions > 50) row.error = "Acompanhantes deve ser no máximo 50.";
+    }
+    return row;
+  },
+
+  clearImportPreview(clearInput = false) {
+    this.importRows = [];
+    this.importId = "";
+    this.importPreview.hidden = true;
+    this.importRowsContainer.innerHTML = "";
+    if (clearInput) this.importInput.value = "";
+  },
+
+  async confirmImport() {
+    if (!this.credentials || !this.importRows.length || this.importRows.some((row) => row.error)) return;
+    this.importConfirmButton.disabled = true;
+    this.importStatus.textContent = "Registrando a lista com segurança...";
+    try {
+      const result = await window.WeddingApi.importAdminGuests({
+        ...this.credentials,
+        importId: this.importId,
+        guests: this.importRows.map((row) => ({ name: row.name, companions: row.companions }))
+      });
+      const duplicates = result.duplicateNames?.length ? ` ${result.duplicateNames.length} nome(s) já existiam e foram mantidos conforme confirmado.` : "";
+      this.importStatus.textContent = `${result.message || "Lista adicionada."}${duplicates}`;
+      this.clearImportPreview(true);
+      await this.loadSummary();
+    } catch (error) {
+      this.importStatus.textContent = error.message || "Não foi possível importar agora. Sua lista continua pronta para tentar novamente.";
+      this.importConfirmButton.disabled = false;
+    }
+  },
+
+  createImportId() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    return `import-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   },
 
   describeCompanion(guest) {

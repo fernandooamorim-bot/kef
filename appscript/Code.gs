@@ -276,6 +276,10 @@ function doPost(e) {
       return handleAdminCreateGuest_(body.data || {});
     }
 
+    if (action === "admin_import_guests") {
+      return handleAdminImportGuests_(body.data || {});
+    }
+
     return jsonResponse(false, null, "Ação POST não reconhecida.");
   } catch (error) {
     return jsonResponse(false, null, error.message);
@@ -911,6 +915,84 @@ function handleAdminCreateGuest_(data) {
   });
 }
 
+function handleAdminImportGuests_(data) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+
+  const importId = String(data.importId || "").trim();
+  const items = Array.isArray(data.guests) ? data.guests : [];
+  if (!importId) return jsonResponse(false, null, "Não foi possível identificar esta importação. Revise a lista e tente novamente.");
+  if (!items.length) return jsonResponse(false, null, "Inclua pelo menos um convidado para importar.");
+  if (items.length > 300) return jsonResponse(false, null, "Importe no máximo 300 convidados por vez.");
+
+  const cleanGuests = [];
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index] || {};
+    const name = String(item.name || "").replace(/\s+/g, " ").trim();
+    const companions = Number(item.companions || 0);
+    if (!name || !/[A-Za-zÀ-ÿ]/.test(name)) {
+      return jsonResponse(false, null, "Revise o nome na linha " + (index + 1) + ".");
+    }
+    if (!Number.isInteger(companions) || companions < 0 || companions > 50) {
+      return jsonResponse(false, null, "Revise os acompanhantes na linha " + (index + 1) + ".");
+    }
+    cleanGuests.push({ name: name, companions: companions });
+  }
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return jsonResponse(false, null, "A lista está sendo atualizada. Aguarde alguns segundos e tente novamente.");
+
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    const idempotencyKey = "guest_import_" + importId;
+    const previous = properties.getProperty(idempotencyKey);
+    if (previous) return jsonResponse(true, JSON.parse(previous));
+
+    const currentGuests = readTableSheet_(SHEETS.CONVIDADOS);
+    const usedIds = currentGuests.reduce(function(ids, guest) {
+      const id = String(guest.guest_id || "").trim();
+      if (id) ids[id] = true;
+      return ids;
+    }, {});
+    const existingNames = currentGuests.reduce(function(names, guest) {
+      const normalized = normalizeText_(guest.name);
+      if (normalized) names[normalized] = true;
+      return names;
+    }, {});
+    const seenNames = {};
+    const warnings = [];
+    const now = new Date();
+    const stamp = Utilities.formatDate(now, Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+    const records = cleanGuests.map(function(guest) {
+      const normalized = normalizeText_(guest.name);
+      if (existingNames[normalized] || seenNames[normalized]) warnings.push(guest.name);
+      seenNames[normalized] = true;
+      return {
+        guest_id: createBulkGuestId_(usedIds),
+        name: guest.name,
+        group: "Lista principal",
+        phone: "",
+        email: "",
+        allowed_companions: guest.companions,
+        status: "ativo",
+        notes: "Importado pela gestão em " + stamp
+      };
+    });
+
+    appendRecords_(getOrCreateSheet_(SHEETS.CONVIDADOS, HEADERS.CONVIDADOS), records);
+    const result = {
+      imported: records.length,
+      duplicateNames: warnings,
+      importedAt: now.toISOString(),
+      message: records.length + " convidado" + (records.length === 1 ? " adicionado." : "s adicionados.")
+    };
+    properties.setProperty(idempotencyKey, JSON.stringify(result));
+    return jsonResponse(true, result);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function getSpreadsheet_() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
@@ -1070,6 +1152,22 @@ function appendRecord_(sheet, record) {
     const canonical = canonicalHeaderForSheet_(sheetName, header);
       return Object.prototype.hasOwnProperty.call(record, canonical) ? record[canonical] : "";
   }));
+}
+
+function appendRecords_(sheet, records) {
+  if (!records.length) return;
+  const sheetName = sheet.getName();
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(function(header) {
+      return String(header || "").trim();
+    });
+  const values = records.map(function(record) {
+    return headers.map(function(header) {
+      const canonical = canonicalHeaderForSheet_(sheetName, header);
+      return Object.prototype.hasOwnProperty.call(record, canonical) ? record[canonical] : "";
+    });
+  });
+  sheet.getRange(sheet.getLastRow() + 1, 1, values.length, headers.length).setValues(values);
 }
 
 function appendGuestRecord_(record) {
@@ -1355,6 +1453,21 @@ function createCancellationToken_(guestId) {
 
 function createAdHocGuestId_() {
   return "AV-" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmmss") + "-" + Math.floor(Math.random() * 9000 + 1000);
+}
+
+function createBulkGuestId_(usedIds) {
+  let number = 1;
+  Object.keys(usedIds).forEach(function(id) {
+    const match = /^KF-(\d+)$/i.exec(id);
+    if (match) number = Math.max(number, Number(match[1]) + 1);
+  });
+  let candidate = "KF-" + String(number).padStart(4, "0");
+  while (usedIds[candidate]) {
+    number += 1;
+    candidate = "KF-" + String(number).padStart(4, "0");
+  }
+  usedIds[candidate] = true;
+  return candidate;
 }
 
 function buildCheckinLink_(token) {

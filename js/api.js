@@ -280,6 +280,13 @@ window.WeddingApi = {
     });
   },
 
+  async importAdminGuests(data) {
+    return this.checkinRequest("admin_import_guests", {
+      ...data,
+      userAgent: navigator.userAgent
+    });
+  },
+
   async submitGiftIntent(data) {
     const config = window.WEDDING_CONFIG;
 
