@@ -21,6 +21,8 @@ window.WeddingAdmin = {
     this.createStatus = document.getElementById("adminCreateStatus");
     this.companionNameField = document.getElementById("adminCompanionNameField");
     this.importForm = document.getElementById("adminImportForm");
+    this.importPanel = document.getElementById("adminImportPanel");
+    this.importToggle = document.getElementById("adminImportToggle");
     this.importInput = document.getElementById("adminImportInput");
     this.importStatus = document.getElementById("adminImportStatus");
     this.importPreview = document.getElementById("adminImportPreview");
@@ -51,7 +53,8 @@ window.WeddingAdmin = {
     this.importForm.addEventListener("submit", (event) => this.previewImport(event));
     this.importInput.addEventListener("input", () => this.clearImportPreview());
     this.importConfirmButton.addEventListener("click", () => this.confirmImport());
-    this.importCancelButton.addEventListener("click", () => this.clearImportPreview(true));
+    this.importCancelButton.addEventListener("click", () => this.toggleImportPanel(false));
+    this.importToggle.addEventListener("click", () => this.toggleImportPanel(this.importPanel.hidden));
   },
 
   async login(event) {
@@ -79,7 +82,7 @@ window.WeddingAdmin = {
   logout() {
     this.credentials = null;
     this.guests = [];
-    this.clearImportPreview(true);
+    this.toggleImportPanel(false);
     this.app.hidden = true;
     this.loginPanel.hidden = false;
     this.loginForm.reset();
@@ -89,6 +92,17 @@ window.WeddingAdmin = {
     this.operatorName.textContent = name || "Equipe";
     this.loginPanel.hidden = true;
     this.app.hidden = false;
+  },
+
+  toggleImportPanel(show) {
+    this.importPanel.hidden = !show;
+    this.importToggle.setAttribute("aria-expanded", String(show));
+    this.importToggle.textContent = show ? "Fechar cadastro" : "Adicionar convidados";
+    if (show) {
+      window.setTimeout(() => this.importInput.focus(), 0);
+    } else {
+      this.clearImportPreview(true);
+    }
   },
 
   async loadSummary() {
@@ -302,6 +316,7 @@ window.WeddingAdmin = {
       const duplicates = result.duplicateNames?.length ? ` ${result.duplicateNames.length} nome(s) já existiam e foram mantidos conforme confirmado.` : "";
       this.importStatus.textContent = `${result.message || "Lista adicionada."}${duplicates}`;
       this.clearImportPreview(true);
+      this.toggleImportPanel(false);
       await this.loadSummary();
     } catch (error) {
       this.importStatus.textContent = error.message || "Não foi possível importar agora. Sua lista continua pronta para tentar novamente.";

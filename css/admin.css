@@ -261,6 +261,12 @@
   gap: 1rem;
 }
 
+.admin-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
 .admin-panel__header h2 {
   margin: 0.2rem 0 0;
   color: var(--color-ink);
@@ -409,4 +415,7 @@
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .admin-panel__actions { width: 100%; }
+  .admin-panel__actions .admin-button { flex: 1; }
 }
