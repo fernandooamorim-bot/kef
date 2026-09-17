@@ -377,11 +377,13 @@ window.WeddingRsvp = {
       window.WeddingCache.remove(window.WEDDING_CONFIG.cache.rsvpDraftKey);
       this.resetForm();
       window.WeddingProcessing?.close();
+      const confirmationMessage = result.message || "Recebemos sua resposta. Obrigado por avisar.";
+      const inviteLink = data.attendance === "confirmed" ? result.inviteLink || "" : "";
       window.WeddingFeedback?.show({
         eyebrow: "Confirmação",
         title: result.alreadyRegistered ? "Resposta já registrada" : data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
-        message: result.message || "Recebemos sua resposta. Obrigado por avisar.",
-        inviteLink: data.attendance === "confirmed" ? result.inviteLink || "" : ""
+        message: inviteLink ? `${confirmationMessage} Seu convite digital já está disponível.` : confirmationMessage,
+        inviteLink
       });
     } catch (error) {
       this.updateStatus(error.message || "Não foi possível enviar agora. Tente novamente em instantes.");
