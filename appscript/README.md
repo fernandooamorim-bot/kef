@@ -10,6 +10,8 @@ Crie uma planilha com estas abas:
 - `PAGINAS`: textos editáveis por seção. Use campos como `secao`, `titulo`, `texto`, `ativo`.
 - `CONVIDADOS`: base oficial de convidados. Campos recomendados: `codigo_convidado`, `nome`, `telefone`, `email`, `grupo`, `acompanhantes_permitidos`, `observacoes`, `status`.
 - `RSVP`: sera preenchida automaticamente pelo formulario, sempre vinculada ao `codigo_convidado`. Quando houver telefone, a coluna `link_whatsapp` recebe o link direto para conversa. Quando houver email, o Apps Script envia uma confirmação visual simples pelo email da conta Google que publicou o Web App, com QR Code para quem confirmou presença.
+
+Para exibir, após uma confirmação de presença, o botão individual **Ver convite digital**, adicione em `CONFIG` a chave `rsvp_show_digital_invite` com o valor `sim`. Com a chave ausente ou vazia, o botão fica oculto; o e-mail de confirmação continua sendo enviado normalmente.
 - `PRESENTES`: lista exibida no site. Campos `gift_id`, `title`, `description`, `image`, `amount`, `enabled`, `sort_order`.
 - `PEDIDOS_PRESENTES`: preenchida automaticamente quando alguem escolhe um presente e envia mensagem.
 - `OPERADORES`: usuários autorizados a acessar `checkin.html` no dia do evento. Campos `usuario`, `senha`, `nome`, `ativo`, `observacoes`.

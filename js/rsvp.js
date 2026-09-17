@@ -380,7 +380,8 @@ window.WeddingRsvp = {
       window.WeddingFeedback?.show({
         eyebrow: "Confirmação",
         title: result.alreadyRegistered ? "Resposta já registrada" : data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
-        message: result.message || "Recebemos sua resposta. Obrigado por avisar."
+        message: result.message || "Recebemos sua resposta. Obrigado por avisar.",
+        inviteLink: data.attendance === "confirmed" ? result.inviteLink || "" : ""
       });
     } catch (error) {
       this.updateStatus(error.message || "Não foi possível enviar agora. Tente novamente em instantes.");

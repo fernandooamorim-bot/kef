@@ -6,6 +6,7 @@ window.WeddingFeedback = {
     this.eyebrow = document.getElementById("siteFeedbackEyebrow");
     this.title = document.getElementById("siteFeedbackTitle");
     this.message = document.getElementById("siteFeedbackMessage");
+    this.inviteButton = document.getElementById("siteFeedbackInvite");
     this.okButton = document.getElementById("siteFeedbackOk");
 
     this.okButton?.addEventListener("click", () => this.close());
@@ -14,7 +15,7 @@ window.WeddingFeedback = {
     });
   },
 
-  show({ eyebrow = "Aviso", title = "Tudo certo", message = "" } = {}) {
+  show({ eyebrow = "Aviso", title = "Tudo certo", message = "", inviteLink = "" } = {}) {
     if (!this.dialog) {
       window.alert(message || title);
       return;
@@ -23,6 +24,10 @@ window.WeddingFeedback = {
     this.eyebrow.textContent = eyebrow;
     this.title.textContent = title;
     this.message.textContent = message;
+    if (this.inviteButton) {
+      this.inviteButton.hidden = !inviteLink;
+      this.inviteButton.href = inviteLink || "";
+    }
     window.WeddingModalLock?.lock();
     this.dialog.showModal();
     this.okButton?.focus();

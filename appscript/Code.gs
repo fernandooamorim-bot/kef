@@ -391,6 +391,7 @@ function handleRsvp_(data) {
   }
 
   const guestEmail = data.email || guest.email || "";
+  const showDigitalInvite = parseBooleanConfig_(readKeyValueSheet_(SHEETS.CONFIG).rsvp_show_digital_invite, false);
   const checkinToken = data.attendance === "confirmed" ? createCheckinToken_(guest.guest_id) : "";
   const checkinLink = checkinToken ? buildCheckinLink_(checkinToken) : "";
   const inviteLink = checkinToken ? buildInviteLink_(checkinToken) : "";
@@ -445,7 +446,8 @@ function handleRsvp_(data) {
   });
 
   return jsonResponse(true, {
-    message: data.attendance === "confirmed" ? "Presença confirmada com sucesso." : "Resposta registrada com sucesso."
+    message: data.attendance === "confirmed" ? "Presença confirmada com sucesso." : "Resposta registrada com sucesso.",
+    inviteLink: data.attendance === "confirmed" && showDigitalInvite ? inviteLink : ""
   });
 }
 
