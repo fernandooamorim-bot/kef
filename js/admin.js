@@ -257,7 +257,7 @@ window.WeddingAdmin = {
       name = raw.slice(0, separator);
       companionsRaw = raw.slice(separator + 1);
     } else {
-      const match = raw.match(/^(.*?)(?:\s{2,})(-?\d+)\s*$/);
+      const match = raw.match(/^(.*?)(?:\s+)(-?\d+)\s*$/);
       if (match) {
         name = match[1];
         companionsRaw = match[2];
