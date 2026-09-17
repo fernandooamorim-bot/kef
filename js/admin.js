@@ -203,17 +203,18 @@ window.WeddingAdmin = {
         <div class="admin-guest__heading">
           <span>${this.escape(guest.statusLabel)}</span>
           <strong>${this.escape(guest.name)}</strong>
-          <p>${this.escape(guest.group || "Sem grupo")}</p>
         </div>
         <dl class="admin-guest__keyfacts">
           <div><dt>Pessoas</dt><dd>${this.escape(guest.totalPeople || 0)}</dd></div>
+          <div><dt>Acompanhante</dt><dd>${this.escape(this.describeCompanionState(guest))}</dd></div>
           <div><dt>Check-in</dt><dd>${this.escape(guest.checkinStatus || "-")}</dd></div>
           <div><dt>Última resposta</dt><dd>${this.escape(this.formatDate(guest.lastResponseAt) || "-")}</dd></div>
         </dl>
         <details class="admin-guest__details">
           <summary>Ver detalhes</summary>
           <dl>
-            <div><dt>Acompanhante</dt><dd>${this.escape(this.describeCompanion(guest))}</dd></div>
+            <div><dt>Grupo</dt><dd>${this.escape(guest.group || "Sem grupo")}</dd></div>
+            <div><dt>Nome acompanhante</dt><dd>${this.escape(this.describeCompanion(guest))}</dd></div>
             <div><dt>Telefone</dt><dd>${this.escape(guest.phone || "-")}</dd></div>
             <div><dt>Email</dt><dd>${this.escape(guest.email || "-")}</dd></div>
           </dl>
@@ -414,6 +415,10 @@ window.WeddingAdmin = {
   describeCompanion(guest) {
     if (!Number(guest.companionsConfirmed || 0)) return "Não";
     return guest.companionName || "Sim";
+  },
+
+  describeCompanionState(guest) {
+    return Number(guest.companionsConfirmed || 0) > 0 ? "Sim" : "Não";
   },
 
   formatCompanionCount(value) {
