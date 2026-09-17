@@ -260,6 +260,10 @@ function doPost(e) {
       return handleCheckinSearch_(body.data || {});
     }
 
+    if (action === "checkin_sync") {
+      return handleCheckinSync_(body.data || {});
+    }
+
     if (action === "cancel_rsvp") {
       return handleCancelRsvp_(body.data || {});
     }
@@ -646,60 +650,95 @@ function handleCheckinValidate_(data) {
   const operator = validateOperator_(data);
   if (!operator.ok) return jsonResponse(false, null, operator.error);
 
-  const token = extractCheckinToken_(data.token || data.value || "");
-  const records = readRsvpRecords_();
-  const record = token
-    ? findRsvpByCheckinTokenInRecords_(records, token)
-    : findLatestConfirmedRsvpByGuestIdInRecords_(records, data.guestId);
-  if (!record) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
     return jsonResponse(true, {
-      status: "invalid",
-      title: "Convite inválido",
-      message: token ? "Este QR Code não foi encontrado na lista de confirmações." : "Este convidado não possui confirmação válida."
+      status: "busy",
+      title: "Validação em andamento",
+      message: "Aguarde um instante e faça a leitura novamente."
     });
   }
 
-  if (record.attendance !== "confirmed") {
+  try {
+    const token = extractCheckinToken_(data.token || data.value || "");
+    const records = readRsvpRecords_();
+    const record = token
+      ? findRsvpByCheckinTokenInRecords_(records, token)
+      : findLatestConfirmedRsvpByGuestIdInRecords_(records, data.guestId);
+    if (!record) {
+      return jsonResponse(true, {
+        status: "invalid",
+        title: "Convite inválido",
+        message: token ? "Este QR Code não foi encontrado na lista de confirmações." : "Este convidado não possui confirmação válida."
+      });
+    }
+
+    if (record.attendance !== "confirmed") {
+      return jsonResponse(true, {
+        status: "invalid",
+        title: "Convite não confirmado",
+        message: "Este convite não está marcado como presença confirmada.",
+        guest: publicCheckinGuest_(record)
+      });
+    }
+
+    const latest = findLatestRsvpByGuestIdInRecords_(records, record.guest_id);
+    if (!latest || latest.attendance !== "confirmed" || latest.checkin_token !== record.checkin_token) {
+      return jsonResponse(true, {
+        status: "invalid",
+        title: "QR Code substituído",
+        message: token
+          ? "Este QR pertence a uma confirmação anterior ou não está mais ativo."
+          : "Este convidado possui uma resposta mais recente e não tem confirmação ativa.",
+        guest: publicCheckinGuest_(record)
+      });
+    }
+
+    if (record.checkin_at) {
+      return jsonResponse(true, {
+        status: "used",
+        title: "Convite já utilizado",
+        message: "Este QR Code já foi validado anteriormente.",
+        guest: publicCheckinGuest_(record)
+      });
+    }
+
+    markCheckin_(record.rowNumber, operator.name || operator.username);
+
+    record.checkin_at = new Date();
+    record.checkin_by = operator.name || operator.username;
+    record.checkin_status = "validado";
+
     return jsonResponse(true, {
-      status: "invalid",
-      title: "Convite não confirmado",
-      message: "Este convite não está marcado como presença confirmada.",
+      status: "allowed",
+      title: "Entrada liberada",
+      message: "Convite validado com sucesso.",
       guest: publicCheckinGuest_(record)
     });
+  } finally {
+    lock.releaseLock();
   }
+}
 
-  const latest = findLatestRsvpByGuestIdInRecords_(records, record.guest_id);
-  if (!latest || latest.attendance !== "confirmed" || latest.checkin_token !== record.checkin_token) {
-    return jsonResponse(true, {
-      status: "invalid",
-      title: "QR Code substituído",
-      message: token
-        ? "Este QR pertence a uma confirmação anterior ou não está mais ativo."
-        : "Este convidado possui uma resposta mais recente e não tem confirmação ativa.",
-      guest: publicCheckinGuest_(record)
+function handleCheckinSync_(data) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+
+  const latestByGuest = getLatestRsvpByGuestIdMap_();
+  const guests = Object.keys(latestByGuest)
+    .map(function(key) {
+      return latestByGuest[key];
+    })
+    .filter(function(record) {
+      return record.attendance === "confirmed" && record.checkin_token;
+    })
+    .map(function(record) {
+      return publicCheckinGuest_(record);
     });
-  }
-
-  if (record.checkin_at) {
-    return jsonResponse(true, {
-      status: "used",
-      title: "Convite já utilizado",
-      message: "Este QR Code já foi validado anteriormente.",
-      guest: publicCheckinGuest_(record)
-    });
-  }
-
-  markCheckin_(record.rowNumber, operator.name || operator.username);
-
-  record.checkin_at = new Date();
-  record.checkin_by = operator.name || operator.username;
-  record.checkin_status = "validado";
 
   return jsonResponse(true, {
-    status: "allowed",
-    title: "Entrada liberada",
-    message: "Convite validado com sucesso.",
-    guest: publicCheckinGuest_(record)
+    syncedAt: new Date().toISOString(),
+    guests: guests
   });
 }
 

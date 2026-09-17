@@ -259,6 +259,13 @@ window.WeddingApi = {
     return this.checkinRequest("checkin_search", data);
   },
 
+  async syncCheckinRoster(credentials) {
+    return this.checkinRequest("checkin_sync", {
+      ...credentials,
+      userAgent: navigator.userAgent
+    });
+  },
+
   async getAdminSummary(credentials) {
     return this.checkinRequest("admin_summary", {
       ...credentials,

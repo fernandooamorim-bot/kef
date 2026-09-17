@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/checkin-192.png">
     <link rel="manifest" href="checkin-manifest.webmanifest">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/checkin.css?v=rsvp-gate-20260904">
+    <link rel="stylesheet" href="css/checkin.css?v=checkin-offline-20260916">
   </head>
   <body class="checkin-page">
     <main class="checkin-shell">
@@ -43,6 +43,15 @@
           </div>
           <button type="button" id="logoutButton">Sair</button>
         </header>
+
+        <section class="checkin-sync" aria-live="polite">
+          <div>
+            <span>Lista de entrada</span>
+            <strong id="syncStatus">Aguardando sincronização</strong>
+            <small id="syncDetails">Conecte-se à internet para baixar a lista atualizada.</small>
+          </div>
+          <button class="checkin-button checkin-button--ghost" type="button" id="syncRosterButton">Atualizar lista</button>
+        </section>
 
         <section class="checkin-result checkin-result--idle" id="resultPanel" aria-live="polite" tabindex="-1">
           <span id="resultTitle">Pronto para validar</span>
@@ -84,10 +93,10 @@
       </section>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="assets/vendor/jsQR.js"></script>
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
-    <script src="js/api.js?v=rsvp-gate-20260904"></script>
-    <script src="js/checkin.js?v=rsvp-gate-20260904"></script>
+    <script src="js/api.js?v=checkin-offline-20260916"></script>
+    <script src="js/checkin.js?v=checkin-offline-20260916"></script>
   </body>
 </html>

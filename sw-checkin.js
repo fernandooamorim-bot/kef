@@ -1,4 +1,4 @@
-const CHECKIN_CACHE = "kf-checkin-v10";
+const CHECKIN_CACHE = "kf-checkin-v11";
 const CHECKIN_ASSETS = [
   "./checkin.html",
   "./convite.html",
@@ -16,6 +16,7 @@ const CHECKIN_ASSETS = [
   "./js/convite.js",
   "./js/cancelar.js",
   "./js/admin.js",
+  "./assets/vendor/jsQR.js",
   "./assets/brand/favicon.svg",
   "./assets/brand/monograma-small.png",
   "./assets/icons/checkin-192.png",
@@ -51,8 +52,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   const isCachedCheckinAsset = url.origin === self.location.origin
     && CHECKIN_ASSETS.includes(`.${url.pathname}`);
-  const isQrReader = url.hostname === "cdn.jsdelivr.net" && url.pathname.includes("/jsQR");
-  if (!isCachedCheckinAsset && !isQrReader) return;
+  if (!isCachedCheckinAsset) return;
 
   event.respondWith(
     fetch(request)

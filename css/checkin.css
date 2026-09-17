@@ -157,6 +157,45 @@
   padding: 0.45rem 0.85rem;
 }
 
+.checkin-sync {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(255, 250, 242, 0.28);
+  background: rgba(18, 17, 15, 0.28);
+  color: var(--color-paper);
+  padding: 0.8rem;
+}
+
+.checkin-sync div {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.checkin-sync span {
+  color: rgba(255, 250, 242, 0.7);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.checkin-sync strong {
+  font-size: 0.92rem;
+}
+
+.checkin-sync small {
+  color: rgba(255, 250, 242, 0.78);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.checkin-sync .checkin-button {
+  flex: 0 0 auto;
+  min-height: 40px;
+}
+
 .checkin-result {
   display: grid;
   gap: 0.4rem;
@@ -438,5 +477,14 @@
   .manual-panel form,
   .checkin-actions {
     grid-template-columns: 1fr;
+  }
+
+  .checkin-sync {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .checkin-sync .checkin-button {
+    width: 100%;
   }
 }

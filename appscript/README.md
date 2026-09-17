@@ -52,5 +52,12 @@ O Apps Script aceita estas ações:
 - `checkin_login`: valida usuário e senha da aba `OPERADORES`.
 - `checkin_validate`: valida o QR Code, bloqueia uso duplicado e marca `checkin_realizado_em`.
 - `checkin_search`: busca manual por convidados confirmados para plano B na portaria.
+- `checkin_sync`: entrega ao aparelho autorizado a lista atual de confirmações para uso offline.
+
+## Operação da portaria
+
+Antes de abrir a recepção, cada aparelho da equipe deve entrar em `checkin.html` com internet e clicar em **Atualizar lista**. Isso baixa a lista de confirmações para aquele aparelho e permite validar QR Codes e buscar nomes se a conexão cair depois.
+
+Quando houver internet, a validação é feita diretamente na planilha e bloqueia leituras simultâneas do mesmo QR Code. Sem internet, a entrada é registrada no aparelho e sincronizada assim que a conexão retornar. Para evitar divergências entre aparelhos, mantenha pelo menos um ponto de internet ativo e, se houver queda total, prefira uma única fila/dispositivo de check-in.
 
 Na próxima etapa de pagamento, `PEDIDOS_PRESENTES` também receberá `provider`, `provider_payment_id`, `payment_url`, `status` e `paid_at`.

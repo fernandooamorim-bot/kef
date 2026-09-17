@@ -10,16 +10,18 @@ window.WeddingCheckin = {
   audioContext: null,
   history: [],
   sessionKey: "kf_checkin_operator",
-  sessionTtlMs: 12 * 60 * 60 * 1000,
+  rosterKey: "kf_checkin_roster_v1",
+  offlineQueueKey: "kf_checkin_queue_v1",
+  rosterTtlMs: 7 * 24 * 60 * 60 * 1000,
 
   init() {
     this.cacheElements();
     this.bindEvents();
+    const token = new URLSearchParams(window.location.search).get("t");
+    if (token) this.pendingToken = token;
     this.restoreSession();
     this.registerServiceWorker();
-    const token = new URLSearchParams(window.location.search).get("t");
-    if (token) {
-      this.pendingToken = token;
+    if (token && !this.credentials) {
       this.showResult("idle", "QR Code recebido", "Faça login para validar", "O convite será verificado após o acesso do operador.");
     }
   },
@@ -45,6 +47,9 @@ window.WeddingCheckin = {
     this.manualForm = document.getElementById("manualForm");
     this.manualResults = document.getElementById("manualResults");
     this.historyList = document.getElementById("checkinHistory");
+    this.syncButton = document.getElementById("syncRosterButton");
+    this.syncStatus = document.getElementById("syncStatus");
+    this.syncDetails = document.getElementById("syncDetails");
   },
 
   bindEvents() {
@@ -53,6 +58,7 @@ window.WeddingCheckin = {
     this.startButton.addEventListener("click", () => this.startScanner());
     this.stopButton.addEventListener("click", () => this.stopScanner());
     this.manualForm.addEventListener("submit", (event) => this.searchManual(event));
+    this.syncButton?.addEventListener("click", () => this.syncRoster());
   },
 
   restoreSession() {
@@ -60,6 +66,8 @@ window.WeddingCheckin = {
     if (saved?.username && saved?.password) {
       this.credentials = saved;
       this.showApp(saved.name || saved.username);
+      this.renderSyncState();
+      this.syncRoster({ silent: true });
       if (this.pendingToken) this.validateToken(this.pendingToken);
     }
   },
@@ -81,6 +89,8 @@ window.WeddingCheckin = {
       this.writeSession(this.credentials);
       this.showApp(this.credentials.name);
       this.loginStatus.textContent = "";
+      this.renderSyncState();
+      await this.syncRoster({ silent: true });
       if (this.pendingToken) this.validateToken(this.pendingToken);
     } catch (error) {
       this.loginStatus.textContent = error.message || "Não foi possível entrar.";
@@ -98,13 +108,9 @@ window.WeddingCheckin = {
 
   readSession() {
     try {
-      const saved = JSON.parse(localStorage.getItem(this.sessionKey) || sessionStorage.getItem(this.sessionKey) || "null");
+      const saved = JSON.parse(sessionStorage.getItem(this.sessionKey) || "null");
       if (!saved) return null;
-      if (!saved.expiresAt || Date.now() > saved.expiresAt) {
-        this.clearSession();
-        return null;
-      }
-      return saved.credentials || null;
+      return saved;
     } catch (error) {
       this.clearSession();
       return null;
@@ -113,12 +119,7 @@ window.WeddingCheckin = {
 
   writeSession(value) {
     try {
-      const payload = {
-        credentials: value,
-        expiresAt: Date.now() + this.sessionTtlMs
-      };
-      localStorage.setItem(this.sessionKey, JSON.stringify(payload));
-      sessionStorage.setItem(this.sessionKey, JSON.stringify(payload));
+      sessionStorage.setItem(this.sessionKey, JSON.stringify(value));
     } catch (error) {
       return false;
     }
@@ -225,6 +226,7 @@ window.WeddingCheckin = {
       });
       this.renderValidation(result, options);
     } catch (error) {
+      if (this.isConnectionError(error) && this.validateOffline(token, options)) return;
       this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
       if (options.scrollToResult) this.scrollToResult();
       this.afterValidation("invalid", "Falha na validação");
@@ -249,8 +251,202 @@ window.WeddingCheckin = {
       });
       this.renderManualResults(result.guests || []);
     } catch (error) {
+      const guests = this.searchOfflineGuests(query);
+      if (guests.length) {
+        this.renderManualResults(guests);
+        this.setSyncState("Modo offline", "Busca feita na última lista sincronizada.");
+        return;
+      }
       this.manualResults.innerHTML = `<p class="checkin-status">${this.escape(error.message || "Não foi possível buscar.")}</p>`;
     }
+  },
+
+  async syncRoster(options = {}) {
+    if (!this.credentials) return false;
+    if (this.syncButton) this.syncButton.disabled = true;
+    if (!options.silent) this.setSyncState("Atualizando lista...", "Baixando confirmações e enviando validações pendentes.");
+
+    try {
+      const queueResult = await this.flushOfflineQueue();
+      const result = await window.WeddingApi.syncCheckinRoster(this.credentials);
+      this.writeRoster(result.guests || [], result.syncedAt || new Date().toISOString());
+      const suffix = queueResult.pending
+        ? ` ${queueResult.pending} validação(ões) ainda aguardam internet.`
+        : queueResult.synced
+          ? ` ${queueResult.synced} validação(ões) offline foram sincronizadas.`
+          : "";
+      this.renderSyncState(`Lista atualizada.${suffix}`);
+      return true;
+    } catch (error) {
+      this.renderSyncState("Modo offline: usando a última lista disponível.");
+      return false;
+    } finally {
+      if (this.syncButton) this.syncButton.disabled = false;
+    }
+  },
+
+  async flushOfflineQueue() {
+    const queue = this.readOfflineQueue();
+    if (!queue.length) return { synced: 0, pending: 0 };
+
+    const remaining = [];
+    let synced = 0;
+    for (const item of queue) {
+      try {
+        const result = await window.WeddingApi.validateCheckin({
+          ...this.credentials,
+          token: item.token
+        });
+        if (result.status === "allowed" || result.status === "used") {
+          synced += 1;
+        } else {
+          remaining.push(item);
+        }
+      } catch (error) {
+        remaining.push(item);
+      }
+    }
+    this.writeOfflineQueue(remaining);
+    return { synced, pending: remaining.length };
+  },
+
+  validateOffline(token, options = {}) {
+    if (this.isRosterStale()) {
+      this.showResult("invalid", "Lista offline desatualizada", "Conecte-se à internet", "Atualize a lista antes de validar entradas sem conexão.");
+      if (options.scrollToResult) this.scrollToResult();
+      this.afterValidation("invalid", "Lista offline desatualizada");
+      return true;
+    }
+
+    const guest = this.findOfflineGuest(token);
+    if (!guest) return false;
+
+    if (guest.checkinStatus === "validado" || this.isOfflineTokenUsed(guest.token)) {
+      this.renderValidation({
+        status: "used",
+        title: "Convite já utilizado",
+        message: "Este QR Code já foi validado neste aparelho ou na última sincronização.",
+        guest
+      }, options);
+      return true;
+    }
+
+    guest.checkinStatus = "validado";
+    guest.checkinAt = new Date().toISOString();
+    guest.checkinBy = this.credentials?.name || this.credentials?.username || "Equipe";
+    this.updateOfflineGuest(guest);
+    this.writeOfflineQueue([...this.readOfflineQueue(), {
+      token: guest.token,
+      checkedInAt: guest.checkinAt
+    }]);
+    this.renderValidation({
+      status: "allowed",
+      title: "Entrada liberada (offline)",
+      message: "Registro salvo neste aparelho e será sincronizado assim que a internet voltar.",
+      guest
+    }, options);
+    this.renderSyncState("Modo offline: há validação pendente de sincronização.");
+    return true;
+  },
+
+  readRoster() {
+    try {
+      const roster = JSON.parse(localStorage.getItem(this.rosterKey) || "null");
+      if (!roster?.guests || !Array.isArray(roster.guests)) return null;
+      return roster;
+    } catch (error) {
+      return null;
+    }
+  },
+
+  writeRoster(guests, syncedAt) {
+    try {
+      localStorage.setItem(this.rosterKey, JSON.stringify({ guests, syncedAt }));
+    } catch (error) {
+      return false;
+    }
+    return true;
+  },
+
+  findOfflineGuest(value) {
+    const token = this.extractToken(value);
+    if (!token) return null;
+    return this.readRoster()?.guests.find((guest) => String(guest.token || "") === token) || null;
+  },
+
+  searchOfflineGuests(query) {
+    const term = this.normalize(query);
+    if (term.length < 2 || this.isRosterStale()) return [];
+    return (this.readRoster()?.guests || [])
+      .filter((guest) => this.normalize(guest.name).includes(term))
+      .slice(0, 10);
+  },
+
+  updateOfflineGuest(updatedGuest) {
+    const roster = this.readRoster();
+    if (!roster) return;
+    roster.guests = roster.guests.map((guest) => guest.token === updatedGuest.token ? updatedGuest : guest);
+    this.writeRoster(roster.guests, roster.syncedAt);
+  },
+
+  readOfflineQueue() {
+    try {
+      const queue = JSON.parse(localStorage.getItem(this.offlineQueueKey) || "[]");
+      return Array.isArray(queue) ? queue : [];
+    } catch (error) {
+      return [];
+    }
+  },
+
+  writeOfflineQueue(queue) {
+    try {
+      const unique = queue.filter((item, index, items) => items.findIndex((candidate) => candidate.token === item.token) === index);
+      localStorage.setItem(this.offlineQueueKey, JSON.stringify(unique));
+    } catch (error) {
+      return false;
+    }
+    return true;
+  },
+
+  isOfflineTokenUsed(token) {
+    return this.readOfflineQueue().some((item) => item.token === token);
+  },
+
+  isRosterStale() {
+    const syncedAt = this.readRoster()?.syncedAt;
+    const timestamp = new Date(syncedAt || "").getTime();
+    return !timestamp || Date.now() - timestamp > this.rosterTtlMs;
+  },
+
+  renderSyncState(message) {
+    const roster = this.readRoster();
+    const queue = this.readOfflineQueue();
+    if (!roster) {
+      this.setSyncState(message || "Nenhuma lista salva neste aparelho.", "Conecte-se à internet antes de iniciar a portaria.");
+      return;
+    }
+    const date = new Date(roster.syncedAt);
+    const label = Number.isNaN(date.getTime()) ? "data desconhecida" : this.formatDate(date);
+    const pending = queue.length ? ` ${queue.length} validação(ões) pendente(s).` : "";
+    const stale = this.isRosterStale() ? " A lista precisa ser atualizada antes de uso offline." : "";
+    this.setSyncState(message || "Lista disponível neste aparelho.", `${roster.guests.length} confirmações sincronizadas em ${label}.${pending}${stale}`);
+  },
+
+  setSyncState(status, details = "") {
+    if (this.syncStatus) this.syncStatus.textContent = status || "";
+    if (this.syncDetails) this.syncDetails.textContent = details || "";
+  },
+
+  isConnectionError(error) {
+    return /não foi possível conectar|não foi possível concluir/i.test(String(error?.message || error || ""));
+  },
+
+  extractToken(value) {
+    const raw = String(value || "").trim();
+    const match = raw.match(/[?&]t=([^&#]+)/i);
+    if (match) return decodeURIComponent(match[1]).trim().toUpperCase();
+    const token = raw.match(/CHK-[A-Z0-9]+-[A-Z0-9]+/i);
+    return token ? token[0].toUpperCase() : "";
   },
 
   renderManualResults(guests) {
@@ -461,6 +657,13 @@ window.WeddingCheckin = {
 
   cleanCompanionName(value) {
     return String(value || "").replace(/^acompanhante\s*:\s*/i, "").trim();
+  },
+
+  normalize(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
   },
 
   formatDate(value) {

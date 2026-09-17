@@ -82,6 +82,8 @@ A página de check-in permite:
 - busca manual por nome para plano B;
 - visualização de acompanhante confirmado.
 
+Antes do evento, entre em cada aparelho da portaria com internet e clique em **Atualizar lista**. O aparelho mantém a última lista de confirmações para validação e busca manual sem conexão. Entradas feitas offline ficam pendentes e são sincronizadas quando a internet retornar; para evitar a validação do mesmo QR em dois aparelhos durante uma queda total, use uma única fila/dispositivo enquanto estiver offline.
+
 ## Presentes
 
 A lista de presentes e simbolica. Cada item vem da aba `PRESENTES`, com:
