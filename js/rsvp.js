@@ -2,6 +2,7 @@ window.WeddingRsvp = {
   selectedGuest: null,
   searchTimer: null,
   searchToken: 0,
+  availabilityTimer: null,
   availability: {
     open: false,
     title: "Confirmações em breve.",
@@ -55,6 +56,23 @@ window.WeddingRsvp = {
     const state = this.getAvailability(settings);
     this.availability = state;
     this.renderAvailability(state);
+    this.scheduleAvailabilityUpdate(settings);
+  },
+
+  scheduleAvailabilityUpdate(settings) {
+    if (this.availabilityTimer) window.clearTimeout(this.availabilityTimer);
+
+    const now = Date.now();
+    const nextChange = [this.parseDate(settings.opensAt), this.parseDate(settings.closesAt)]
+      .map((date) => date?.getTime() || 0)
+      .filter((time) => time > now)
+      .sort((a, b) => a - b)[0];
+
+    if (!nextChange) return;
+
+    const maxTimeout = 2147483647;
+    const delay = Math.max(1000, Math.min(nextChange - now + 1000, maxTimeout));
+    this.availabilityTimer = window.setTimeout(() => this.applyConfig(settings), delay);
   },
 
   getAvailability(settings) {
