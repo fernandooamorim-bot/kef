@@ -103,6 +103,15 @@
             <button type="button" data-filter="cancelled">Cancelados</button>
           </div>
 
+          <label class="admin-sort">
+            <span>Ordenar por</span>
+            <select id="adminSort">
+              <option value="sheet">Ordem atual</option>
+              <option value="guestId">Código / ID</option>
+              <option value="name">Nome (A–Z)</option>
+            </select>
+          </label>
+
           <label class="admin-search">
             <span>Buscar</span>
             <input id="adminSearch" autocomplete="off" placeholder="Nome, grupo ou telefone">
@@ -157,6 +166,6 @@
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
     <script src="js/api.js?v=admin-import-20260917"></script>
-    <script src="js/admin.js?v=admin-card-priority-20260917"></script>
+    <script src="js/admin.js?v=admin-sort-20260917"></script>
   </body>
 </html>

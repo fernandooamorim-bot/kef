@@ -2,6 +2,7 @@ window.WeddingAdmin = {
   credentials: null,
   guests: [],
   filter: "all",
+  sortMode: "sheet",
   importRows: [],
   importId: "",
   sessionKey: "kf_admin_operator",
@@ -17,6 +18,7 @@ window.WeddingAdmin = {
     this.list = document.getElementById("adminGuestList");
     this.filters = document.getElementById("adminFilters");
     this.search = document.getElementById("adminSearch");
+    this.sortSelect = document.getElementById("adminSort");
     this.refreshButton = document.getElementById("refreshAdminButton");
     this.createForm = document.getElementById("adminCreateForm");
     this.createStatus = document.getElementById("adminCreateStatus");
@@ -47,6 +49,10 @@ window.WeddingAdmin = {
     this.logoutButton.addEventListener("click", () => this.logout());
     this.refreshButton.addEventListener("click", () => this.loadSummary());
     this.search.addEventListener("input", () => this.renderList());
+    this.sortSelect.addEventListener("change", () => {
+      this.sortMode = this.sortSelect.value;
+      this.renderList();
+    });
     this.filters.addEventListener("click", (event) => {
       const button = event.target.closest("[data-filter]");
       if (!button) return;
@@ -192,6 +198,7 @@ window.WeddingAdmin = {
       if (!term) return true;
       return this.normalize(`${guest.name} ${guest.group} ${guest.phone} ${guest.email}`).includes(term);
     });
+    this.sortGuests(guests);
 
     if (!guests.length) {
       this.list.innerHTML = '<p class="admin-status">Nenhum convidado encontrado.</p>';
@@ -225,6 +232,18 @@ window.WeddingAdmin = {
         </details>
       </article>
     `).join("");
+  },
+
+  sortGuests(guests) {
+    if (this.sortMode === "sheet") return guests;
+    return guests.sort((first, second) => {
+      const firstValue = this.sortMode === "guestId" ? first.guestId : first.name;
+      const secondValue = this.sortMode === "guestId" ? second.guestId : second.name;
+      return String(firstValue || "").localeCompare(String(secondValue || ""), "pt-BR", {
+        numeric: true,
+        sensitivity: "base"
+      });
+    });
   },
 
   async createGuest(event) {
