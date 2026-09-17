@@ -63,7 +63,7 @@ window.WeddingCheckin = {
 
   restoreSession() {
     const saved = this.readSession();
-    if (saved?.username && saved?.password) {
+    if (saved?.username && saved?.sessionToken) {
       this.credentials = saved;
       this.showApp(saved.name || saved.username);
       this.renderSyncState();
@@ -83,8 +83,9 @@ window.WeddingCheckin = {
     try {
       const result = await window.WeddingApi.checkinLogin(credentials);
       this.credentials = {
-        ...credentials,
-        name: result.operator?.name || credentials.username
+        username: result.operator?.username || credentials.username,
+        name: result.operator?.name || credentials.username,
+        sessionToken: result.sessionToken
       };
       this.writeSession(this.credentials);
       this.showApp(this.credentials.name);
@@ -108,7 +109,7 @@ window.WeddingCheckin = {
 
   readSession() {
     try {
-      const saved = JSON.parse(sessionStorage.getItem(this.sessionKey) || "null");
+      const saved = JSON.parse(localStorage.getItem(this.sessionKey) || "null");
       if (!saved) return null;
       return saved;
     } catch (error) {
@@ -119,7 +120,7 @@ window.WeddingCheckin = {
 
   writeSession(value) {
     try {
-      sessionStorage.setItem(this.sessionKey, JSON.stringify(value));
+      localStorage.setItem(this.sessionKey, JSON.stringify(value));
     } catch (error) {
       return false;
     }
@@ -129,6 +130,10 @@ window.WeddingCheckin = {
   clearSession() {
     localStorage.removeItem(this.sessionKey);
     sessionStorage.removeItem(this.sessionKey);
+  },
+
+  isInvalidSessionError(error) {
+    return /sessão inválida/i.test(String(error?.message || error || ""));
   },
 
   showApp(name) {
@@ -226,6 +231,11 @@ window.WeddingCheckin = {
       });
       this.renderValidation(result, options);
     } catch (error) {
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
+        return;
+      }
       if (this.isConnectionError(error) && this.validateOffline(token, options)) return;
       this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
       if (options.scrollToResult) this.scrollToResult();
@@ -251,6 +261,11 @@ window.WeddingCheckin = {
       });
       this.renderManualResults(result.guests || []);
     } catch (error) {
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
+        return;
+      }
       const guests = this.searchOfflineGuests(query);
       if (guests.length) {
         this.renderManualResults(guests);
@@ -278,6 +293,11 @@ window.WeddingCheckin = {
       this.renderSyncState(`Lista atualizada.${suffix}`);
       return true;
     } catch (error) {
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
+        return false;
+      }
       this.renderSyncState("Modo offline: usando a última lista disponível.");
       return false;
     } finally {

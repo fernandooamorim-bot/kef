@@ -648,6 +648,7 @@ function handleCheckinLogin_(data) {
       username: operator.username,
       name: operator.name
     },
+    sessionToken: createOperatorSession_(operator),
     message: "Acesso liberado."
   });
 }
@@ -1176,6 +1177,9 @@ function appendGuestRecord_(record) {
 }
 
 function validateOperator_(data) {
+  const sessionToken = String(data.sessionToken || "").trim();
+  if (sessionToken) return validateOperatorSession_(sessionToken);
+
   const username = String(data.username || data.usuario || "").trim();
   const password = String(data.password || data.senha || "").trim();
   if (!username || !password) {
@@ -1197,8 +1201,65 @@ function validateOperator_(data) {
   return {
     ok: true,
     username: username,
-    name: operator.operator_name || operator.name || username
+    name: operator.operator_name || operator.name || username,
+    password: String(operator.password || "")
   };
+}
+
+function createOperatorSession_(operator) {
+  const payload = {
+    username: String(operator.username || "").trim().toLowerCase(),
+    fingerprint: operatorSessionFingerprint_(operator.username, operator.password)
+  };
+  const encoded = Utilities.base64EncodeWebSafe(JSON.stringify(payload));
+  const signature = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(encoded, getOperatorSessionSecret_()));
+  return encoded + "." + signature;
+}
+
+function validateOperatorSession_(token) {
+  const pieces = String(token || "").split(".");
+  if (pieces.length !== 2) return { ok: false, error: "Sessão inválida. Faça login novamente." };
+
+  const expectedSignature = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(pieces[0], getOperatorSessionSecret_()));
+  if (pieces[1] !== expectedSignature) return { ok: false, error: "Sessão inválida. Faça login novamente." };
+
+  try {
+    const payload = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(pieces[0])).getDataAsString());
+    const username = String(payload.username || "").trim().toLowerCase();
+    if (!username || !payload.fingerprint) return { ok: false, error: "Sessão inválida. Faça login novamente." };
+
+    getOrCreateSheet_(SHEETS.OPERADORES, HEADERS.OPERADORES);
+    const operator = readTableSheet_(SHEETS.OPERADORES).find(function(item) {
+      return String(item.username || "").trim().toLowerCase() === username &&
+        isEnabled_(item.ativo !== undefined ? item.ativo : item.enabled);
+    });
+    if (!operator || payload.fingerprint !== operatorSessionFingerprint_(operator.username, operator.password)) {
+      return { ok: false, error: "Sessão inválida. Faça login novamente." };
+    }
+    return {
+      ok: true,
+      username: String(operator.username || "").trim(),
+      name: operator.operator_name || operator.name || operator.username
+    };
+  } catch (error) {
+    return { ok: false, error: "Sessão inválida. Faça login novamente." };
+  }
+}
+
+function operatorSessionFingerprint_(username, password) {
+  const value = String(username || "").trim().toLowerCase() + "\u0000" + String(password || "");
+  return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(value, getOperatorSessionSecret_()));
+}
+
+function getOperatorSessionSecret_() {
+  const properties = PropertiesService.getScriptProperties();
+  const key = "operator_session_secret_v1";
+  let secret = properties.getProperty(key);
+  if (!secret) {
+    secret = Utilities.getUuid() + Utilities.getUuid();
+    properties.setProperty(key, secret);
+  }
+  return secret;
 }
 
 function readRsvpRecords_() {

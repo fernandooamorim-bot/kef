@@ -4,6 +4,7 @@ window.WeddingAdmin = {
   filter: "all",
   importRows: [],
   importId: "",
+  sessionKey: "kf_admin_operator",
 
   init() {
     this.loginPanel = document.getElementById("adminLogin");
@@ -32,6 +33,7 @@ window.WeddingAdmin = {
     this.importCancelButton = document.getElementById("adminImportCancel");
 
     this.bindEvents();
+    this.restoreSession();
   },
 
   bindEvents() {
@@ -68,9 +70,11 @@ window.WeddingAdmin = {
     try {
       const result = await window.WeddingApi.checkinLogin(credentials);
       this.credentials = {
-        ...credentials,
-        name: result.operator?.name || credentials.username
+        username: result.operator?.username || credentials.username,
+        name: result.operator?.name || credentials.username,
+        sessionToken: result.sessionToken
       };
+      this.writeSession(this.credentials);
       this.showApp(this.credentials.name);
       this.loginStatus.textContent = "";
       await this.loadSummary();
@@ -80,12 +84,43 @@ window.WeddingAdmin = {
   },
 
   logout() {
+    this.clearSession();
     this.credentials = null;
     this.guests = [];
     this.toggleImportPanel(false);
     this.app.hidden = true;
     this.loginPanel.hidden = false;
     this.loginForm.reset();
+  },
+
+  async restoreSession() {
+    const saved = this.readSession();
+    if (!saved?.username || !saved?.sessionToken) return;
+    this.credentials = saved;
+    this.showApp(saved.name || saved.username);
+    await this.loadSummary();
+  },
+
+  readSession() {
+    try {
+      return JSON.parse(localStorage.getItem(this.sessionKey) || "null");
+    } catch (error) {
+      this.clearSession();
+      return null;
+    }
+  },
+
+  writeSession(value) {
+    try {
+      localStorage.setItem(this.sessionKey, JSON.stringify(value));
+    } catch (error) {
+      return false;
+    }
+    return true;
+  },
+
+  clearSession() {
+    localStorage.removeItem(this.sessionKey);
   },
 
   showApp(name) {
@@ -114,6 +149,11 @@ window.WeddingAdmin = {
       this.renderSummary(result.totals || {});
       this.renderList();
     } catch (error) {
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
+        return;
+      }
       this.list.innerHTML = `<p class="admin-status">${this.escape(error.message || "Não foi possível carregar.")}</p>`;
     }
   },
@@ -327,6 +367,10 @@ window.WeddingAdmin = {
   createImportId() {
     if (window.crypto?.randomUUID) return window.crypto.randomUUID();
     return `import-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  },
+
+  isInvalidSessionError(error) {
+    return /sessão inválida/i.test(String(error?.message || error || ""));
   },
 
   describeCompanion(guest) {

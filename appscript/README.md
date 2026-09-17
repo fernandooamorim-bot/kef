@@ -14,6 +14,8 @@ Crie uma planilha com estas abas:
 A página `admin.html` também permite importar até 300 convidados por vez, usando apenas nome e quantidade de acompanhantes. A prévia sinaliza dados inválidos e possíveis nomes repetidos antes de gravar; a importação é confirmada em uma única operação e cria os códigos dos convidados automaticamente.
 
 Para exibir, após uma confirmação de presença, o botão individual **Ver convite digital**, adicione em `CONFIG` a chave `rsvp_show_digital_invite` com o valor `sim`. Com a chave ausente ou vazia, o botão fica oculto; o e-mail de confirmação continua sendo enviado normalmente.
+
+Os acessos de `admin.html` e `checkin.html` permanecem ativos após atualizar a página, sem salvar a senha no aparelho. A sessão é invalidada automaticamente se o operador for desativado, removido ou tiver usuário/senha alterados na aba `OPERADORES`.
 - `PRESENTES`: lista exibida no site. Campos `gift_id`, `title`, `description`, `image`, `amount`, `enabled`, `sort_order`.
 - `PEDIDOS_PRESENTES`: preenchida automaticamente quando alguem escolhe um presente e envia mensagem.
 - `OPERADORES`: usuários autorizados a acessar `checkin.html` no dia do evento. Campos `usuario`, `senha`, `nome`, `ativo`, `observacoes`.
