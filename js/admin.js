@@ -237,9 +237,7 @@ window.WeddingAdmin = {
   sortGuests(guests) {
     if (this.sortMode === "sheet") return guests;
     return guests.sort((first, second) => {
-      const firstValue = this.sortMode === "guestId" ? first.guestId : first.name;
-      const secondValue = this.sortMode === "guestId" ? second.guestId : second.name;
-      return String(firstValue || "").localeCompare(String(secondValue || ""), "pt-BR", {
+      return String(first.name || "").localeCompare(String(second.name || ""), "pt-BR", {
         numeric: true,
         sensitivity: "base"
       });
