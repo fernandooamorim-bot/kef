@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#4e5a42">
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/admin.css?v=admin-import-toggle-20260917">
+    <link rel="stylesheet" href="css/admin.css?v=admin-feedback-20260917">
   </head>
   <body class="admin-page">
     <main class="admin-shell">
@@ -56,6 +56,13 @@
             </label>
             <button class="admin-button" type="submit">Revisar lista</button>
             <p class="admin-status" id="adminImportStatus" role="status"></p>
+            <div class="admin-import__progress" id="adminImportProgress" hidden role="status" aria-live="polite">
+              <span class="admin-import__spinner" aria-hidden="true"></span>
+              <div>
+                <strong>Salvando convidados...</strong>
+                <p>A lista está sendo registrada e o status será atualizado automaticamente.</p>
+              </div>
+            </div>
           </form>
           <section class="admin-import__preview" id="adminImportPreview" hidden aria-live="polite">
             <div class="admin-import__summary" id="adminImportSummary"></div>
@@ -65,6 +72,15 @@
               <button class="admin-button" type="button" id="adminImportConfirm">Confirmar importação</button>
             </div>
           </section>
+        </section>
+
+        <section class="admin-feedback" id="adminImportFeedback" hidden role="status" aria-live="polite">
+          <div>
+            <span>Cadastro concluído</span>
+            <strong id="adminImportFeedbackTitle">Lista adicionada</strong>
+            <p id="adminImportFeedbackMessage"></p>
+          </div>
+          <button class="admin-button admin-button--small admin-button--ghost" type="button" id="adminImportFeedbackClose">Fechar</button>
         </section>
 
         <section class="admin-panel">
@@ -141,6 +157,6 @@
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
     <script src="js/api.js?v=admin-import-20260917"></script>
-    <script src="js/admin.js?v=operator-session-20260917"></script>
+    <script src="js/admin.js?v=admin-feedback-20260917"></script>
   </body>
 </html>

@@ -163,6 +163,62 @@
   gap: 0.6rem;
 }
 
+.admin-import__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgba(78, 90, 66, 0.18);
+  background: rgba(78, 90, 66, 0.07);
+  padding: 0.8rem;
+}
+
+.admin-import__progress strong,
+.admin-feedback strong {
+  display: block;
+  color: var(--color-olive);
+}
+
+.admin-import__progress p,
+.admin-feedback p {
+  margin: 0.2rem 0 0;
+  color: var(--color-muted);
+  line-height: 1.45;
+}
+
+.admin-import__spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  border: 2px solid rgba(78, 90, 66, 0.2);
+  border-top-color: var(--color-olive);
+  border-radius: 50%;
+  animation: admin-spin 0.8s linear infinite;
+}
+
+.admin-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(47, 125, 79, 0.35);
+  background: rgba(47, 125, 79, 0.1);
+  padding: 1rem;
+}
+
+.admin-feedback > div > span {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: #2f7d4f;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@keyframes admin-spin {
+  to { transform: rotate(360deg); }
+}
+
 .admin-button--ghost {
   border: 1px solid rgba(78, 90, 66, 0.35);
   background: transparent;
@@ -418,4 +474,5 @@
 
   .admin-panel__actions { width: 100%; }
   .admin-panel__actions .admin-button { flex: 1; }
+  .admin-feedback { align-items: stretch; flex-direction: column; }
 }

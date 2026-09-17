@@ -31,6 +31,12 @@ window.WeddingAdmin = {
     this.importRowsContainer = document.getElementById("adminImportRows");
     this.importConfirmButton = document.getElementById("adminImportConfirm");
     this.importCancelButton = document.getElementById("adminImportCancel");
+    this.importReviewButton = this.importForm.querySelector('button[type="submit"]');
+    this.importProgress = document.getElementById("adminImportProgress");
+    this.importFeedback = document.getElementById("adminImportFeedback");
+    this.importFeedbackTitle = document.getElementById("adminImportFeedbackTitle");
+    this.importFeedbackMessage = document.getElementById("adminImportFeedbackMessage");
+    this.importFeedbackClose = document.getElementById("adminImportFeedbackClose");
 
     this.bindEvents();
     this.restoreSession();
@@ -57,6 +63,7 @@ window.WeddingAdmin = {
     this.importConfirmButton.addEventListener("click", () => this.confirmImport());
     this.importCancelButton.addEventListener("click", () => this.toggleImportPanel(false));
     this.importToggle.addEventListener("click", () => this.toggleImportPanel(this.importPanel.hidden));
+    this.importFeedbackClose.addEventListener("click", () => this.hideImportFeedback());
   },
 
   async login(event) {
@@ -130,6 +137,7 @@ window.WeddingAdmin = {
   },
 
   toggleImportPanel(show) {
+    if (show) this.hideImportFeedback();
     this.importPanel.hidden = !show;
     this.importToggle.setAttribute("aria-expanded", String(show));
     this.importToggle.textContent = show ? "Fechar cadastro" : "Adicionar convidados";
@@ -141,7 +149,7 @@ window.WeddingAdmin = {
   },
 
   async loadSummary() {
-    if (!this.credentials) return;
+    if (!this.credentials) return false;
     this.list.innerHTML = '<p class="admin-status">Carregando convidados...</p>';
     try {
       const result = await window.WeddingApi.getAdminSummary(this.credentials);
@@ -152,10 +160,12 @@ window.WeddingAdmin = {
       if (this.isInvalidSessionError(error)) {
         this.logout();
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
-        return;
+        return false;
       }
       this.list.innerHTML = `<p class="admin-status">${this.escape(error.message || "Não foi possível carregar.")}</p>`;
+      return false;
     }
+    return true;
   },
 
   renderSummary(totals) {
@@ -240,6 +250,7 @@ window.WeddingAdmin = {
 
   previewImport(event) {
     event.preventDefault();
+    this.hideImportFeedback();
     const rows = this.parseImport(this.importInput.value);
     if (!rows.length) {
       this.importStatus.textContent = "Cole pelo menos um nome para revisar.";
@@ -279,7 +290,7 @@ window.WeddingAdmin = {
       <article class="admin-import-row admin-import-row--${row.error ? "error" : row.warnings.length ? "warning" : "ready"}">
         <span>${this.escape(row.line)}</span>
         <strong>${this.escape(row.name || "Nome não identificado")}</strong>
-        <em>${this.escape(row.companions)} acompanhante${row.companions === 1 ? "" : "s"}</em>
+        <em>${this.escape(this.formatCompanionCount(row.companions))}</em>
         <p>${this.escape(row.error || row.warnings.join(" ") || "Pronto para importar.")}</p>
       </article>
     `).join("");
@@ -345,7 +356,7 @@ window.WeddingAdmin = {
 
   async confirmImport() {
     if (!this.credentials || !this.importRows.length || this.importRows.some((row) => row.error)) return;
-    this.importConfirmButton.disabled = true;
+    this.setImportProgress(true);
     this.importStatus.textContent = "Registrando a lista com segurança...";
     try {
       const result = await window.WeddingApi.importAdminGuests({
@@ -354,14 +365,36 @@ window.WeddingAdmin = {
         guests: this.importRows.map((row) => ({ name: row.name, companions: row.companions }))
       });
       const duplicates = result.duplicateNames?.length ? ` ${result.duplicateNames.length} nome(s) já existiam e foram mantidos conforme confirmado.` : "";
-      this.importStatus.textContent = `${result.message || "Lista adicionada."}${duplicates}`;
+      this.setImportProgress(false);
       this.clearImportPreview(true);
       this.toggleImportPanel(false);
-      await this.loadSummary();
+      const refreshed = await this.loadSummary();
+      this.showImportFeedback(
+        "Lista adicionada com sucesso",
+        `${result.message || "Os convidados foram cadastrados."}${duplicates} ${refreshed ? "A lista e os contadores já foram atualizados automaticamente." : "Não foi possível atualizar a lista agora; use Atualizar para tentar novamente."}`
+      );
     } catch (error) {
       this.importStatus.textContent = error.message || "Não foi possível importar agora. Sua lista continua pronta para tentar novamente.";
-      this.importConfirmButton.disabled = false;
+      this.setImportProgress(false);
     }
+  },
+
+  setImportProgress(active) {
+    this.importProgress.hidden = !active;
+    this.importConfirmButton.disabled = active;
+    this.importCancelButton.disabled = active;
+    this.importReviewButton.disabled = active;
+    this.importInput.disabled = active;
+  },
+
+  showImportFeedback(title, message) {
+    this.importFeedbackTitle.textContent = title;
+    this.importFeedbackMessage.textContent = message;
+    this.importFeedback.hidden = false;
+  },
+
+  hideImportFeedback() {
+    if (this.importFeedback) this.importFeedback.hidden = true;
   },
 
   createImportId() {
@@ -376,6 +409,12 @@ window.WeddingAdmin = {
   describeCompanion(guest) {
     if (!Number(guest.companionsConfirmed || 0)) return "Não";
     return guest.companionName || "Sim";
+  },
+
+  formatCompanionCount(value) {
+    const count = Number(value || 0);
+    if (count === 0) return "Sem acompanhante";
+    return `${count} ${count === 1 ? "acompanhante" : "acompanhantes"}`;
   },
 
   formatDate(value) {
