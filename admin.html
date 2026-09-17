@@ -48,11 +48,11 @@
               <h2>Adicionar lista de convidados</h2>
             </div>
           </div>
-          <p class="admin-import__intro">Cole um convidado por linha. Use <strong>Nome | acompanhantes</strong>, duas colunas copiadas de uma planilha, ou somente o nome. Campo vazio de acompanhantes vale 0.</p>
+          <p class="admin-import__intro">Cole um convidado por linha. Use <strong>Nome | acompanhantes</strong>, duas colunas copiadas de uma planilha, ou <strong>Nome&nbsp;&nbsp; acompanhantes</strong> (dois ou mais espaços antes do número). Somente o nome vale 0 acompanhantes.</p>
           <form id="adminImportForm">
             <label>
               <span>Lista para revisar</span>
-              <textarea id="adminImportInput" name="guestList" rows="9" placeholder="Maria Silva | 1&#10;João Costa | 0&#10;Beatriz Lima"></textarea>
+              <textarea id="adminImportInput" name="guestList" rows="9" placeholder="Maria Silva | 1&#10;João Costa  0&#10;Beatriz Lima"></textarea>
             </label>
             <button class="admin-button" type="submit">Revisar lista</button>
             <p class="admin-status" id="adminImportStatus" role="status"></p>
