@@ -200,23 +200,28 @@ window.WeddingAdmin = {
 
     this.list.innerHTML = guests.map((guest) => `
       <article class="admin-guest admin-guest--${this.escape(guest.status)}">
-        <div>
+        <div class="admin-guest__heading">
           <span>${this.escape(guest.statusLabel)}</span>
           <strong>${this.escape(guest.name)}</strong>
           <p>${this.escape(guest.group || "Sem grupo")}</p>
         </div>
-        <dl>
+        <dl class="admin-guest__keyfacts">
           <div><dt>Pessoas</dt><dd>${this.escape(guest.totalPeople || 0)}</dd></div>
-          <div><dt>Acompanhante</dt><dd>${this.escape(this.describeCompanion(guest))}</dd></div>
-          <div><dt>Telefone</dt><dd>${this.escape(guest.phone || "-")}</dd></div>
-          <div><dt>Email</dt><dd>${this.escape(guest.email || "-")}</dd></div>
           <div><dt>Check-in</dt><dd>${this.escape(guest.checkinStatus || "-")}</dd></div>
           <div><dt>Última resposta</dt><dd>${this.escape(this.formatDate(guest.lastResponseAt) || "-")}</dd></div>
         </dl>
-        <div class="admin-guest__links">
-          ${guest.inviteLink ? `<a href="${this.escapeAttr(guest.inviteLink)}" target="_blank" rel="noopener">Convite</a>` : ""}
-          ${guest.cancellationLink ? `<a href="${this.escapeAttr(guest.cancellationLink)}" target="_blank" rel="noopener">Cancelar</a>` : ""}
-        </div>
+        <details class="admin-guest__details">
+          <summary>Ver detalhes</summary>
+          <dl>
+            <div><dt>Acompanhante</dt><dd>${this.escape(this.describeCompanion(guest))}</dd></div>
+            <div><dt>Telefone</dt><dd>${this.escape(guest.phone || "-")}</dd></div>
+            <div><dt>Email</dt><dd>${this.escape(guest.email || "-")}</dd></div>
+          </dl>
+          <div class="admin-guest__links">
+            ${guest.inviteLink ? `<a href="${this.escapeAttr(guest.inviteLink)}" target="_blank" rel="noopener">Convite</a>` : ""}
+            ${guest.cancellationLink ? `<a href="${this.escapeAttr(guest.cancellationLink)}" target="_blank" rel="noopener">Cancelar</a>` : ""}
+          </div>
+        </details>
       </article>
     `).join("");
   },
