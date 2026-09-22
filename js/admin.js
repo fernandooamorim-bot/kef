@@ -67,7 +67,11 @@ window.WeddingAdmin = {
     this.importForm.addEventListener("submit", (event) => this.previewImport(event));
     this.importInput.addEventListener("input", () => this.clearImportPreview());
     this.importConfirmButton.addEventListener("click", () => this.confirmImport());
-    this.importCancelButton.addEventListener("click", () => this.toggleImportPanel(false));
+    this.importCancelButton.addEventListener("click", () => {
+      this.clearImportPreview(false);
+      this.importStatus.textContent = "Lista mantida. Faça os ajustes e revise novamente.";
+      this.importInput.focus();
+    });
     this.importToggle.addEventListener("click", () => this.toggleImportPanel(this.importPanel.hidden));
     this.importFeedbackClose.addEventListener("click", () => this.hideImportFeedback());
   },
