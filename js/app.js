@@ -13,10 +13,7 @@ window.WeddingFeedback = {
     this.okButton?.addEventListener("click", () => this.close());
     this.giftsButton?.addEventListener("click", (event) => {
       event.preventDefault();
-      this.close();
-      window.setTimeout(() => {
-        document.getElementById("presentes")?.scrollIntoView({ behavior: "smooth" });
-      }, 0);
+      this.goToGifts();
     });
     this.dialog?.addEventListener("click", (event) => {
       if (event.target === this.dialog) this.close();
@@ -55,6 +52,24 @@ window.WeddingFeedback = {
 
   close() {
     if (this.dialog?.open) this.dialog.close();
+  },
+
+  goToGifts() {
+    const scrollToGifts = () => {
+      // The modal lock restores the previous position when the dialog closes.
+      window.setTimeout(() => {
+        document.getElementById("presentes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.history.replaceState(null, "", "#presentes");
+      }, 80);
+    };
+
+    if (!this.dialog?.open) {
+      scrollToGifts();
+      return;
+    }
+
+    this.dialog.addEventListener("close", scrollToGifts, { once: true });
+    this.close();
   }
 };
 
