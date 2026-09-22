@@ -7,15 +7,30 @@ window.WeddingFeedback = {
     this.title = document.getElementById("siteFeedbackTitle");
     this.message = document.getElementById("siteFeedbackMessage");
     this.inviteButton = document.getElementById("siteFeedbackInvite");
+    this.giftsButton = document.getElementById("siteFeedbackGifts");
     this.okButton = document.getElementById("siteFeedbackOk");
 
     this.okButton?.addEventListener("click", () => this.close());
+    this.giftsButton?.addEventListener("click", (event) => {
+      event.preventDefault();
+      this.close();
+      window.setTimeout(() => {
+        document.getElementById("presentes")?.scrollIntoView({ behavior: "smooth" });
+      }, 0);
+    });
     this.dialog?.addEventListener("click", (event) => {
       if (event.target === this.dialog) this.close();
     });
   },
 
-  show({ eyebrow = "Aviso", title = "Tudo certo", message = "", inviteLink = "" } = {}) {
+  show({
+    eyebrow = "Aviso",
+    title = "Tudo certo",
+    message = "",
+    inviteLink = "",
+    showGifts = false,
+    giftsPrimary = false
+  } = {}) {
     if (!this.dialog) {
       window.alert(message || title);
       return;
@@ -27,6 +42,11 @@ window.WeddingFeedback = {
     if (this.inviteButton) {
       this.inviteButton.hidden = !inviteLink;
       this.inviteButton.href = inviteLink || "";
+    }
+    if (this.giftsButton) {
+      this.giftsButton.hidden = !showGifts;
+      this.giftsButton.classList.toggle("button--primary", showGifts && giftsPrimary);
+      this.giftsButton.classList.toggle("button--outline", !giftsPrimary);
     }
     window.WeddingModalLock?.lock();
     this.dialog.showModal();

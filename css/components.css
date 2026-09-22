@@ -191,6 +191,17 @@
   background: var(--color-olive);
 }
 
+.button--outline {
+  color: var(--color-olive);
+  border-color: rgba(78, 90, 66, 0.42);
+  background: transparent;
+}
+
+.button--outline:hover,
+.button--outline:focus-visible {
+  background: rgba(78, 90, 66, 0.08);
+}
+
 .button--ghost {
   color: var(--color-paper);
   border-color: rgba(255, 250, 242, 0.55);

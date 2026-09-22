@@ -360,7 +360,9 @@ window.WeddingRsvp = {
       window.WeddingFeedback?.show({
         eyebrow: "Confirmação",
         title: "Resposta já registrada",
-        message
+        message,
+        showGifts: true,
+        giftsPrimary: this.selectedGuest.rsvp?.attendance !== "confirmed"
       });
       return;
     }
@@ -395,13 +397,17 @@ window.WeddingRsvp = {
       window.WeddingCache.remove(window.WEDDING_CONFIG.cache.rsvpDraftKey);
       this.resetForm();
       window.WeddingProcessing?.close();
-      const confirmationMessage = result.message || "Recebemos sua resposta. Obrigado por avisar.";
       const inviteLink = data.attendance === "confirmed" ? result.inviteLink || "" : "";
+      const confirmationMessage = data.attendance === "confirmed"
+        ? `Agradecemos por confirmar sua presença.${inviteLink ? " Seu convite digital já está disponível." : ""}`
+        : "Agradecemos por nos avisar.";
       window.WeddingFeedback?.show({
         eyebrow: "Confirmação",
         title: result.alreadyRegistered ? "Resposta já registrada" : data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
-        message: inviteLink ? `${confirmationMessage} Seu convite digital já está disponível.` : confirmationMessage,
-        inviteLink
+        message: confirmationMessage,
+        inviteLink,
+        showGifts: true,
+        giftsPrimary: data.attendance !== "confirmed"
       });
     } catch (error) {
       this.updateStatus(error.message || "Não foi possível enviar agora. Tente novamente em instantes.");
