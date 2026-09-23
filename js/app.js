@@ -208,6 +208,7 @@ const app = {
   initHeroVideo() {
     const video = document.getElementById("heroVideo");
     const hero = document.getElementById("inicio");
+    const playButton = document.getElementById("heroVideoPlay");
     if (!video || !hero) return;
 
     let attempts = 0;
@@ -215,9 +216,18 @@ const app = {
 
     const revealVideo = () => {
       hero.classList.add("has-video");
+      hero.classList.remove("video-failed");
+      if (playButton) playButton.hidden = true;
       ["pointerdown", "touchstart", "keydown"].forEach((eventName) => {
         window.removeEventListener(eventName, retryOnInteraction);
       });
+    };
+
+    const markVideoFailed = () => {
+      video.dataset.failed = "true";
+      hero.classList.remove("has-video");
+      hero.classList.add("video-failed");
+      if (playButton) playButton.hidden = true;
     };
 
     const retryOnInteraction = () => {
@@ -241,22 +251,27 @@ const app = {
         video.setAttribute("loop", "");
         await video.play();
       } catch (error) {
+        if (error?.name === "NotAllowedError" && playButton) {
+          playButton.hidden = false;
+        }
         if (attempts < maxAttempts) {
           window.setTimeout(tryPlayback, 850);
         }
       }
     };
 
+    playButton?.addEventListener("click", () => {
+      playButton.hidden = true;
+      attempts = 0;
+      tryPlayback();
+    });
     video.addEventListener("playing", revealVideo);
     video.addEventListener("canplay", tryPlayback, { once: true });
-    video.addEventListener("error", () => {
-      video.dataset.failed = "true";
-      hero.classList.remove("has-video");
-    });
+    video.addEventListener("error", markVideoFailed);
     try {
       video.load();
     } catch (error) {
-      video.dataset.failed = "true";
+      markVideoFailed();
     }
     ["pointerdown", "touchstart", "keydown"].forEach((eventName) => {
       window.addEventListener(eventName, retryOnInteraction, { passive: true });
