@@ -154,7 +154,6 @@ const app = {
   applyRemoteConfig(data) {
     const remote = data?.config || {};
     const heroImage = remote.hero_image || window.WEDDING_CONFIG.heroImage;
-    const heroVideo = remote.hero_video || window.WEDDING_CONFIG.heroVideo;
     const resolvedHero = this.resolveGalleryImage(heroImage);
     const hero = document.getElementById("heroImage");
     const heroVideoNode = document.getElementById("heroVideo");
@@ -163,14 +162,10 @@ const app = {
       hero.src = resolvedHero;
     }
 
-    if (heroVideoNode && heroVideo) {
-      heroVideoNode.dataset.src = heroVideo;
-      const source = heroVideoNode.querySelector("source");
-      if (source && source.getAttribute("src") !== heroVideo) {
-        source.src = heroVideo;
-        heroVideoNode.load();
-      }
-    }
+    this.setHeroVideoSources(heroVideoNode, {
+      desktop: remote.hero_video_desktop || window.WEDDING_CONFIG.heroVideoDesktop,
+      mobile: remote.hero_video_mobile || remote.hero_video || window.WEDDING_CONFIG.heroVideoMobile
+    });
 
     window.WeddingRsvp.applyConfig(remote);
     window.WeddingGifts.update(data);
@@ -180,6 +175,29 @@ const app = {
     if (!value) return "";
     if (value.startsWith("assets/") || value.startsWith("http")) return value;
     return `assets/images/gallery/${value}.jpg`;
+  },
+
+  setHeroVideoSources(video, sources = {}) {
+    if (!video) return;
+    if (sources.desktop) video.dataset.desktopSrc = sources.desktop;
+    if (sources.mobile) video.dataset.mobileSrc = sources.mobile;
+
+    const isMobile = window.matchMedia("(max-width: 860px)").matches;
+    const selectedSource = isMobile ? video.dataset.mobileSrc : video.dataset.desktopSrc;
+    if (!selectedSource) return;
+
+    let source = video.querySelector("source");
+    if (!source) {
+      source = document.createElement("source");
+      source.type = "video/mp4";
+      video.append(source);
+    }
+    if (source.getAttribute("src") === selectedSource) return;
+
+    source.src = selectedSource;
+    video.dataset.src = selectedSource;
+    video.dataset.failed = "";
+    video.load();
   },
 
   initLoader() {
@@ -212,6 +230,11 @@ const app = {
     const video = document.getElementById("heroVideo");
     const hero = document.getElementById("inicio");
     if (!video || !hero) return;
+
+    this.setHeroVideoSources(video, {
+      desktop: window.WEDDING_CONFIG.heroVideoDesktop,
+      mobile: window.WEDDING_CONFIG.heroVideoMobile
+    });
 
     let attempts = 0;
     const maxAttempts = 5;
@@ -265,10 +288,16 @@ const app = {
     video.addEventListener("loadeddata", tryPlayback);
     video.addEventListener("canplay", tryPlayback);
     video.addEventListener("error", markVideoFailed);
-    try {
-      video.load();
-    } catch (error) {
-      markVideoFailed();
+    const videoBreakpoint = window.matchMedia("(max-width: 860px)");
+    const updateForViewport = () => {
+      this.setHeroVideoSources(video);
+      attempts = 0;
+      tryPlayback();
+    };
+    if (videoBreakpoint.addEventListener) {
+      videoBreakpoint.addEventListener("change", updateForViewport);
+    } else {
+      videoBreakpoint.addListener(updateForViewport);
     }
     ["pointerdown", "touchstart", "keydown"].forEach((eventName) => {
       window.addEventListener(eventName, retryOnInteraction, { passive: true });

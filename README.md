@@ -37,7 +37,7 @@ Edite `js/config.js` para trocar:
 - `gallery`: ordem das fotos.
 - `mapsUrl`: link de rota.
 
-O topo usa `heroVideo` como vídeo de fundo em loop, com fallback automático para `heroImage`.
+O topo usa `heroVideoDesktop` e `heroVideoMobile` como vídeos de fundo em loop, com fallback automático para `heroImage`.
 
 O site funciona sem Apps Script, usando fallback local. Nesse modo, o RSVP fica salvo apenas no navegador para teste.
 
