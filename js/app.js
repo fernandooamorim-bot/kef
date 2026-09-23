@@ -187,12 +187,15 @@ const app = {
     const start = Date.now();
     const minDuration = 3000;
     const maxDuration = 5200;
+    let hideScheduled = false;
     const hide = () => {
-      if (!loader || loader.classList.contains("is-hidden")) return;
+      if (!loader || loader.classList.contains("is-hidden") || hideScheduled) return;
+      hideScheduled = true;
       const elapsed = Date.now() - start;
       window.setTimeout(() => {
         loader.classList.add("is-hidden");
         document.body.classList.remove("loading-lock");
+        window.dispatchEvent(new CustomEvent("site:loader-hidden"));
         window.setTimeout(() => loader.remove(), 700);
       }, Math.max(0, minDuration - elapsed));
     };
@@ -208,7 +211,6 @@ const app = {
   initHeroVideo() {
     const video = document.getElementById("heroVideo");
     const hero = document.getElementById("inicio");
-    const playButton = document.getElementById("heroVideoPlay");
     if (!video || !hero) return;
 
     let attempts = 0;
@@ -217,7 +219,6 @@ const app = {
     const revealVideo = () => {
       hero.classList.add("has-video");
       hero.classList.remove("video-failed");
-      if (playButton) playButton.hidden = true;
       ["pointerdown", "touchstart", "keydown"].forEach((eventName) => {
         window.removeEventListener(eventName, retryOnInteraction);
       });
@@ -227,7 +228,6 @@ const app = {
       video.dataset.failed = "true";
       hero.classList.remove("has-video");
       hero.classList.add("video-failed");
-      if (playButton) playButton.hidden = true;
     };
 
     const retryOnInteraction = () => {
@@ -251,20 +251,16 @@ const app = {
         video.setAttribute("loop", "");
         await video.play();
       } catch (error) {
-        if (error?.name === "NotAllowedError" && playButton) {
-          playButton.hidden = false;
-        }
         if (attempts < maxAttempts) {
           window.setTimeout(tryPlayback, 850);
         }
       }
     };
 
-    playButton?.addEventListener("click", () => {
-      playButton.hidden = true;
+    window.addEventListener("site:loader-hidden", () => {
       attempts = 0;
       tryPlayback();
-    });
+    }, { once: true });
     video.addEventListener("playing", revealVideo);
     video.addEventListener("canplay", tryPlayback, { once: true });
     video.addEventListener("error", markVideoFailed);
