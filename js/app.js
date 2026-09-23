@@ -185,8 +185,8 @@ const app = {
   initLoader() {
     const loader = document.getElementById("siteLoader");
     const start = Date.now();
-    const minDuration = 3000;
-    const maxDuration = 5200;
+    const minDuration = 1100;
+    const maxDuration = 2600;
     let hideScheduled = false;
     const hide = () => {
       if (!loader || loader.classList.contains("is-hidden") || hideScheduled) return;
@@ -214,7 +214,7 @@ const app = {
     if (!video || !hero) return;
 
     let attempts = 0;
-    const maxAttempts = 3;
+    const maxAttempts = 5;
 
     const revealVideo = () => {
       hero.classList.add("has-video");
@@ -262,7 +262,8 @@ const app = {
       tryPlayback();
     }, { once: true });
     video.addEventListener("playing", revealVideo);
-    video.addEventListener("canplay", tryPlayback, { once: true });
+    video.addEventListener("loadeddata", tryPlayback);
+    video.addEventListener("canplay", tryPlayback);
     video.addEventListener("error", markVideoFailed);
     try {
       video.load();

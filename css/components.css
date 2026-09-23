@@ -30,7 +30,7 @@
   filter: saturate(1.08) contrast(1.02) brightness(1.03);
   object-position: center 42%;
   transform: scale(1.04);
-  animation: loaderPhoto 3200ms ease-out both;
+  animation: loaderPhoto 1500ms ease-out both;
 }
 
 .site-loader__texture {
@@ -93,7 +93,7 @@
   background: rgba(255, 250, 242, 0.18);
   transform: scaleX(0);
   transform-origin: left;
-  animation: loaderLine 3000ms cubic-bezier(0.36, 0, 0.18, 1) both;
+  animation: loaderLine 1500ms cubic-bezier(0.36, 0, 0.18, 1) both;
 }
 
 .site-loader__bar::after {
@@ -109,7 +109,7 @@
   background: rgba(178, 154, 104, 0.92);
   transform: scaleX(0);
   transform-origin: left;
-  animation: loaderLine 3000ms cubic-bezier(0.36, 0, 0.18, 1) both;
+  animation: loaderLine 1500ms cubic-bezier(0.36, 0, 0.18, 1) both;
 }
 
 @keyframes loaderPhoto {
