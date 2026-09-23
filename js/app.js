@@ -215,6 +215,16 @@ const app = {
 
     const revealVideo = () => {
       hero.classList.add("has-video");
+      ["pointerdown", "touchstart", "keydown"].forEach((eventName) => {
+        window.removeEventListener(eventName, retryOnInteraction);
+      });
+    };
+
+    const retryOnInteraction = () => {
+      if (video.dataset.failed !== "true" && video.paused) {
+        attempts = 0;
+        tryPlayback();
+      }
     };
 
     const tryPlayback = async () => {
@@ -233,8 +243,6 @@ const app = {
       } catch (error) {
         if (attempts < maxAttempts) {
           window.setTimeout(tryPlayback, 850);
-        } else {
-          video.dataset.failed = "true";
         }
       }
     };
@@ -250,6 +258,9 @@ const app = {
     } catch (error) {
       video.dataset.failed = "true";
     }
+    ["pointerdown", "touchstart", "keydown"].forEach((eventName) => {
+      window.addEventListener(eventName, retryOnInteraction, { passive: true });
+    });
     window.setTimeout(tryPlayback, 120);
     window.setTimeout(tryPlayback, 1000);
   },
