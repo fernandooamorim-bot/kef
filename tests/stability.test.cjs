@@ -157,6 +157,34 @@ test("check-in não usa lista offline sem escolha do operador", async () => {
   assert.equal(offlineCalls, 1);
 });
 
+test("busca manual só valida após confirmação do operador", async () => {
+  let requests = 0;
+  const window = { WeddingApi: { validateCheckin: async () => { requests += 1; return { status: "allowed", title: "Entrada liberada", guest: { name: "Pessoa Teste" } }; } } };
+  const context = vm.createContext({ window, console, document: { addEventListener: () => {} } });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/checkin.js"), "utf8"), context);
+  const checkin = window.WeddingCheckin;
+  checkin.credentials = { sessionToken: "test" };
+  checkin.manualConfirmName = { textContent: "" };
+  checkin.manualConfirmDetails = { textContent: "" };
+  checkin.manualConfirmButton = { textContent: "" };
+  checkin.manualConfirmDialog = { showModal() {}, close() {} };
+  checkin.markManualSelection = () => {};
+  checkin.restoreManualSelection = () => {};
+  checkin.showResult = () => {};
+  checkin.scrollToResult = () => {};
+  checkin.renderValidation = () => {};
+  const guest = { name: "Pessoa Teste", token: "CHK-KF001-ABC", checkinStatus: "pendente" };
+  checkin.selectManualGuest(guest, {});
+  assert.equal(requests, 0);
+  checkin.manualSelection = null;
+  checkin.confirmManualSelection();
+  assert.equal(requests, 0);
+  checkin.selectManualGuest(guest, {});
+  checkin.confirmManualSelection();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(requests, 1);
+});
+
 test("sincronização offline marca conflito em vez de descartá-lo", async () => {
   const window = { WeddingApi: { validateCheckin: async () => ({ status: "used" }) } };
   const context = vm.createContext({ window, console, document: { addEventListener: () => {} } });
@@ -170,6 +198,22 @@ test("sincronização offline marca conflito em vez de descartá-lo", async () =
   assert.equal(result.conflicts, 1);
   assert.equal(result.synced, 0);
   assert.equal(saved[0].conflict, true);
+});
+
+test("fila pendente tenta sincronizar quando a conexão volta", () => {
+  const window = {};
+  const context = vm.createContext({ window, console, document: { addEventListener: () => {} } });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/checkin.js"), "utf8"), context);
+  const checkin = window.WeddingCheckin;
+  checkin.credentials = { sessionToken: "test" };
+  let syncs = 0;
+  checkin.syncRoster = () => { syncs += 1; };
+  checkin.readOfflineQueue = () => [{ token: "CHK-KF001-ABC" }];
+  checkin.syncPendingCheckins();
+  assert.equal(syncs, 1);
+  checkin.readOfflineQueue = () => [{ token: "CHK-KF001-ABC", conflict: true }];
+  checkin.syncPendingCheckins();
+  assert.equal(syncs, 1);
 });
 
 test("service worker reconhece caminho /kef/ e versão na URL", async () => {

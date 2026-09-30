@@ -3,6 +3,7 @@ window.WeddingCheckin = {
   stream: null,
   scanning: false,
   validating: false,
+  syncing: false,
   lastToken: "",
   lastReadAt: 0,
   readLockedUntil: 0,
@@ -46,6 +47,11 @@ window.WeddingCheckin = {
     this.stopButton = document.getElementById("stopScannerButton");
     this.manualForm = document.getElementById("manualForm");
     this.manualResults = document.getElementById("manualResults");
+    this.manualConfirmDialog = document.getElementById("manualConfirmDialog");
+    this.manualConfirmName = document.getElementById("manualConfirmName");
+    this.manualConfirmDetails = document.getElementById("manualConfirmDetails");
+    this.manualConfirmButton = document.getElementById("manualConfirmButton");
+    this.manualCancelButton = document.getElementById("manualCancelButton");
     this.historyList = document.getElementById("checkinHistory");
     this.syncButton = document.getElementById("syncRosterButton");
     this.syncStatus = document.getElementById("syncStatus");
@@ -59,6 +65,13 @@ window.WeddingCheckin = {
     this.startButton.addEventListener("click", () => this.startScanner());
     this.stopButton.addEventListener("click", () => this.stopScanner());
     this.manualForm.addEventListener("submit", (event) => this.searchManual(event));
+    this.manualCancelButton.addEventListener("click", () => this.manualConfirmDialog.close());
+    this.manualConfirmButton.addEventListener("click", () => this.confirmManualSelection());
+    this.manualConfirmDialog.addEventListener("close", () => { this.manualSelection = null; });
+    window.addEventListener("online", () => this.syncPendingCheckins());
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && navigator.onLine) this.syncPendingCheckins();
+    });
     this.syncButton?.addEventListener("click", () => this.syncRoster());
     this.offlineModeToggle?.addEventListener("change", () => {
       if (this.offlineModeToggle.checked && this.isRosterStale()) {
@@ -115,6 +128,7 @@ window.WeddingCheckin = {
 
   logout() {
     this.stopScanner();
+    if (this.manualConfirmDialog?.open) this.manualConfirmDialog.close();
     if (this.offlineModeToggle) this.offlineModeToggle.checked = false;
     this.clearSession();
     this.credentials = null;
@@ -263,6 +277,7 @@ window.WeddingCheckin = {
 
   async searchManual(event) {
     event.preventDefault();
+    this.manualSelection = null;
     const query = this.manualForm.elements.query.value.trim();
     if (query.length < 2) {
       this.manualResults.innerHTML = '<p class="checkin-status">Digite pelo menos duas letras.</p>';
@@ -293,7 +308,8 @@ window.WeddingCheckin = {
   },
 
   async syncRoster(options = {}) {
-    if (!this.credentials) return false;
+    if (!this.credentials || this.syncing) return false;
+    this.syncing = true;
     if (this.syncButton) this.syncButton.disabled = true;
     if (!options.silent) this.setSyncState("Atualizando lista...", "Baixando confirmações e enviando validações pendentes.");
 
@@ -323,7 +339,14 @@ window.WeddingCheckin = {
       this.renderSyncState("Não foi possível atualizar a lista agora.");
       return false;
     } finally {
+      this.syncing = false;
       if (this.syncButton) this.syncButton.disabled = false;
+    }
+  },
+
+  syncPendingCheckins() {
+    if (this.credentials && this.readOfflineQueue().some((item) => !item.conflict)) {
+      this.syncRoster({ silent: true });
     }
   },
 
@@ -521,14 +544,31 @@ window.WeddingCheckin = {
       button.className = "manual-result";
       button.innerHTML = `
         <strong>${this.escape(guest.name)}</strong>
-        <span>${this.describeGuest(guest)}</span>
+        <span>${this.escape(this.describeGuest(guest))}</span>
       `;
-      button.addEventListener("click", () => this.validateManualGuest(guest, button));
+      button.addEventListener("click", () => this.selectManualGuest(guest, button));
       this.manualResults.appendChild(button);
     });
   },
 
+  selectManualGuest(guest, button) {
+    if (this.validating) return;
+    this.manualSelection = { guest, button };
+    this.manualConfirmName.textContent = guest.name || "Convidado";
+    this.manualConfirmDetails.textContent = this.describeGuest(guest);
+    this.manualConfirmButton.textContent = guest.checkinStatus === "validado" ? "Conferir registro" : "Validar entrada";
+    this.manualConfirmDialog.showModal();
+  },
+
+  confirmManualSelection() {
+    const selection = this.manualSelection;
+    if (!selection || this.validating) return;
+    this.manualConfirmDialog.close();
+    this.validateManualGuest(selection.guest, selection.button);
+  },
+
   async validateManualGuest(guest, button) {
+    if (this.validating) return;
     this.markManualSelection(button, guest);
     this.showResult("reading", "Validando convite", guest.name || "Convidado", "Consultando a lista de confirmações.");
     this.scrollToResult();
@@ -538,6 +578,7 @@ window.WeddingCheckin = {
         name: guest.name || "Convidado",
         scrollToResult: true
       });
+      this.restoreManualSelection(button, guest);
       return;
     }
 
@@ -554,7 +595,15 @@ window.WeddingCheckin = {
       this.afterValidation("invalid", "Falha na validação");
     } finally {
       this.validating = false;
+      this.restoreManualSelection(button, guest);
     }
+  },
+
+  restoreManualSelection(button, guest) {
+    if (!button) return;
+    button.classList.remove("is-validating");
+    button.disabled = false;
+    button.innerHTML = `<strong>${this.escape(guest.name || "Convidado")}</strong><span>${this.escape(this.describeGuest(guest))}</span>`;
   },
 
   markManualSelection(button, guest) {
@@ -588,7 +637,7 @@ window.WeddingCheckin = {
   },
 
   afterValidation(status, title) {
-    const signalMode = status === "allowed" ? "valid" : status === "used" ? "warning" : "error";
+    const signalMode = status === "allowed" ? "valid" : "error";
     const soundMode = status === "allowed" ? "success" : status === "used" ? "warning" : "error";
     const text = status === "allowed"
       ? "Convite validado. Próxima leitura em instantes."

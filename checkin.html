@@ -13,7 +13,7 @@
     <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/checkin-192.png">
     <link rel="manifest" href="checkin-manifest.webmanifest">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/checkin.css?v=checkin-offline-20260916">
+    <link rel="stylesheet" href="css/checkin.css?v=checkin-confirm-20260930">
   </head>
   <body class="checkin-page">
     <main class="checkin-shell">
@@ -95,12 +95,21 @@
           </div>
         </section>
       </section>
+      <dialog class="checkin-confirm" id="manualConfirmDialog" aria-labelledby="manualConfirmTitle">
+        <span id="manualConfirmTitle">Confirmar entrada</span>
+        <strong id="manualConfirmName"></strong>
+        <p id="manualConfirmDetails"></p>
+        <div class="checkin-confirm__actions">
+          <button class="checkin-button checkin-button--outline" type="button" id="manualCancelButton">Voltar</button>
+          <button class="checkin-button" type="button" id="manualConfirmButton">Validar entrada</button>
+        </div>
+      </dialog>
     </main>
 
     <script src="assets/vendor/jsQR.js"></script>
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
     <script src="js/api.js?v=stability-20260929"></script>
-    <script src="js/checkin.js?v=stability-20260929"></script>
+    <script src="js/checkin.js?v=checkin-confirm-20260930"></script>
   </body>
 </html>
