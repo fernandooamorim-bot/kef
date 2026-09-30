@@ -14,6 +14,9 @@ const SPREADSHEET_ID = "1YxiFGWAyUUVGzD13LEjYytLPsogIQ54H2VpQjkVJybY";
 const RSVP_ALREADY_REGISTERED_MESSAGE = "Obrigado pela sua resposta. Sua confirmação já foi registrada. Caso precise fazer alguma alteração, por favor, entre em contato diretamente com os noivos.";
 const PUBLIC_CONFIG_CACHE_KEY = "kef_public_config_v1";
 const PUBLIC_CONFIG_CACHE_SECONDS = 5 * 60;
+const GUEST_SEARCH_CACHE_KEY = "kef_guest_search_v1";
+const GUEST_SEARCH_CACHE_SECONDS = 60;
+const GUEST_SEARCH_REVISION_KEY = "kef_guest_search_revision";
 
 const HEADERS = {
   RSVP: [
@@ -213,6 +216,16 @@ function doGet(e) {
       });
     }
 
+    if (action === "rsvp_status") {
+      const config = readKeyValueSheet_(SHEETS.CONFIG);
+      return jsonResponse(true, {
+        rsvp_enabled: parseBooleanConfig_(config.rsvp_enabled, false),
+        rsvp_open_at: config.rsvp_open_at || config.rsvp_abre_em || "",
+        rsvp_close_at: config.rsvp_close_at || config.rsvp_fecha_em || "",
+        rsvp_closed_message: config.rsvp_closed_message || config.mensagem_rsvp_fechado || ""
+      });
+    }
+
     if (action === "guests") {
       return handleGuestSearch_(e.parameter.q || "");
     }
@@ -231,7 +244,8 @@ function doGet(e) {
 
     return handlePublicConfig_(e.parameter.refresh === "1" || e.parameter.nocache === "1");
   } catch (error) {
-    return jsonResponse(false, null, error.message);
+    console.error("GET " + String(e.parameter.action || "config") + ": " + (error.stack || error));
+    return jsonResponse(false, null, "Não foi possível consultar o sistema agora. Tente novamente.", "SERVER_ERROR");
   }
 }
 
@@ -282,7 +296,8 @@ function doPost(e) {
 
     return jsonResponse(false, null, "Ação POST não reconhecida.");
   } catch (error) {
-    return jsonResponse(false, null, error.message);
+    console.error("POST: " + (error.stack || error));
+    return jsonResponse(false, null, "Não foi possível concluir a operação agora. Tente novamente.", "SERVER_ERROR");
   }
 }
 
@@ -310,7 +325,12 @@ function testarAutorizacaoPlanilha() {
 function handlePublicConfig_(forceRefresh) {
   const cache = CacheService.getScriptCache();
   if (!forceRefresh) {
-    const cached = cache.get(PUBLIC_CONFIG_CACHE_KEY);
+    let cached = null;
+    try {
+      cached = cache.get(PUBLIC_CONFIG_CACHE_KEY);
+    } catch (error) {
+      console.error("Public config cache read: " + (error.stack || error));
+    }
     if (cached) {
       try {
         return jsonResponse(true, JSON.parse(cached));
@@ -322,7 +342,11 @@ function handlePublicConfig_(forceRefresh) {
 
   const data = readPublicConfigData_();
   if (hasUsablePublicConfig_(data)) {
-    cache.put(PUBLIC_CONFIG_CACHE_KEY, JSON.stringify(data), PUBLIC_CONFIG_CACHE_SECONDS);
+    try {
+      cache.put(PUBLIC_CONFIG_CACHE_KEY, JSON.stringify(data), PUBLIC_CONFIG_CACHE_SECONDS);
+    } catch (error) {
+      console.error("Public config cache write: " + (error.stack || error));
+    }
   }
   return jsonResponse(true, data);
 }
@@ -357,101 +381,126 @@ function handleRsvp_(data) {
     return jsonResponse(false, null, "Selecione seu nome na lista de convidados.");
   }
 
-  if (!data.attendance) {
+  if (["confirmed", "declined"].indexOf(data.attendance) === -1) {
     return jsonResponse(false, null, "Informe se você confirma presença.");
   }
 
-  const guest = findGuestById_(data.guestId);
-  if (!guest) {
-    return jsonResponse(false, null, "Convidado não encontrado. Confira o nome selecionado.");
-  }
-
-  const existingRsvp = findLatestRsvpByGuestId_(guest.guest_id);
-  if (existingRsvp) {
-    return jsonResponse(true, {
-      alreadyRegistered: true,
-      attendance: existingRsvp.attendance || "",
-      message: RSVP_ALREADY_REGISTERED_MESSAGE
-    });
-  }
-
-  const allowedCompanions = Number(guest.allowed_companions || 0);
   const companionsConfirmed = Number(data.companionsConfirmed || 0);
-  if (companionsConfirmed > allowedCompanions) {
-    return jsonResponse(false, null, "Não foi possível registrar a quantidade de pessoas informada.");
+  if (!Number.isInteger(companionsConfirmed) || companionsConfirmed < 0 || (data.attendance !== "confirmed" && companionsConfirmed !== 0)) {
+    return jsonResponse(false, null, "Quantidade de acompanhantes inválida.");
   }
-
   if (companionsConfirmed > 0 && !data.companionName) {
     return jsonResponse(false, null, "Informe o nome do acompanhante.");
   }
-
-  const phone = data.phone || guest.phone || "";
-  if (!phone || String(data.phoneDigits || phone).replace(/\D/g, "").length < 10) {
-    return jsonResponse(false, null, "Informe um WhatsApp válido.");
-  }
-
   if (!data.email || String(data.email).indexOf("@") === -1) {
     return jsonResponse(false, null, "Informe um email válido.");
   }
 
-  const guestEmail = data.email || guest.email || "";
-  const showDigitalInvite = parseBooleanConfig_(readKeyValueSheet_(SHEETS.CONFIG).rsvp_show_digital_invite, false);
-  const checkinToken = data.attendance === "confirmed" ? createCheckinToken_(guest.guest_id) : "";
-  const checkinLink = checkinToken ? buildCheckinLink_(checkinToken) : "";
-  const inviteLink = checkinToken ? buildInviteLink_(checkinToken) : "";
-  const cancellationToken = checkinToken ? createCancellationToken_(guest.guest_id) : "";
-  const cancellationLink = cancellationToken ? buildCancellationLink_(cancellationToken) : "";
-  const qrCode = checkinLink ? buildQrCodeUrl_(checkinLink) : "";
-  const whatsappLink = buildWhatsappLink_(data.phoneDigits || phone, {
-    guestName: guest.name,
-    inviteLink: inviteLink,
-    cancellationLink: cancellationLink,
-    attendance: data.attendance
-  });
-  const emailResult = sendRsvpConfirmationEmail_(guest, {
-    attendance: data.attendance,
-    companionsConfirmed: companionsConfirmed,
-    companionName: data.companionName || "",
-    email: guestEmail,
-    checkinToken: checkinToken,
-    checkinLink: checkinLink,
-    inviteLink: inviteLink,
-    cancellationLink: cancellationLink,
-    qrCode: qrCode
-  });
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) {
+    return jsonResponse(false, null, "A confirmação está ocupada. Aguarde alguns segundos e tente novamente.");
+  }
 
-  const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
+  let confirmation;
+  try {
+    const currentAvailability = getRsvpAvailability_();
+    if (!currentAvailability.open) {
+      return jsonResponse(false, null, currentAvailability.message);
+    }
 
-  appendRecord_(sheet, {
-    timestamp: new Date(),
-    guest_id: guest.guest_id,
-    guest_name: guest.name,
-    name: guest.name,
-    attendance: data.attendance,
-    companions_confirmed: companionsConfirmed,
-    companion_name: data.companionName || "",
-    companion: data.companionName || "",
-    phone: phone,
-    whatsapp_link: whatsappLink,
-    email: guestEmail,
-    checkin_token: checkinToken,
-    checkin_link: checkinLink,
-    invite_link: inviteLink,
-    cancellation_token: cancellationToken,
-    cancellation_link: cancellationLink,
-    qr_code: qrCode,
-    checkin_status: checkinToken ? "pendente" : "",
-    checkin_at: "",
-    checkin_by: "",
-    confirmation_email_sent_at: emailResult.sentAt || "",
-    confirmation_email_error: emailResult.error || "",
-    source: data.source || "site",
-    userAgent: data.userAgent || ""
-  });
+    const guest = findGuestById_(data.guestId);
+    if (!guest) {
+      return jsonResponse(false, null, "Convidado não encontrado. Confira o nome selecionado.");
+    }
+
+    const existingRsvp = findLatestRsvpByGuestId_(guest.guest_id);
+    if (existingRsvp) {
+      return jsonResponse(true, {
+        alreadyRegistered: true,
+        attendance: existingRsvp.attendance || "",
+        message: RSVP_ALREADY_REGISTERED_MESSAGE
+      });
+    }
+
+    if (companionsConfirmed > Number(guest.allowed_companions || 0)) {
+      return jsonResponse(false, null, "Não foi possível registrar a quantidade de pessoas informada.");
+    }
+
+    const phone = data.phone || guest.phone || "";
+    if (!phone || String(data.phoneDigits || phone).replace(/\D/g, "").length < 10) {
+      return jsonResponse(false, null, "Informe um WhatsApp válido.");
+    }
+
+    const guestEmail = data.email || guest.email || "";
+    const showDigitalInvite = parseBooleanConfig_(readKeyValueSheet_(SHEETS.CONFIG).rsvp_show_digital_invite, false);
+    const checkinToken = data.attendance === "confirmed" ? createCheckinToken_(guest.guest_id) : "";
+    const checkinLink = checkinToken ? buildCheckinLink_(checkinToken) : "";
+    const inviteLink = checkinToken ? buildInviteLink_(checkinToken) : "";
+    const cancellationToken = checkinToken ? createCancellationToken_(guest.guest_id) : "";
+    const cancellationLink = cancellationToken ? buildCancellationLink_(cancellationToken) : "";
+    const qrCode = checkinLink ? buildQrCodeUrl_(checkinLink) : "";
+    const whatsappLink = buildWhatsappLink_(data.phoneDigits || phone, {
+      guestName: guest.name,
+      inviteLink: inviteLink,
+      cancellationLink: cancellationLink,
+      attendance: data.attendance
+    });
+    const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
+    const rowNumber = sheet.getLastRow() + 1;
+    appendRecord_(sheet, {
+      timestamp: new Date(),
+      guest_id: guest.guest_id,
+      guest_name: guest.name,
+      name: guest.name,
+      attendance: data.attendance,
+      companions_confirmed: companionsConfirmed,
+      companion_name: data.companionName || "",
+      companion: data.companionName || "",
+      phone: phone,
+      whatsapp_link: whatsappLink,
+      email: guestEmail,
+      checkin_token: checkinToken,
+      checkin_link: checkinLink,
+      invite_link: inviteLink,
+      cancellation_token: cancellationToken,
+      cancellation_link: cancellationLink,
+      qr_code: qrCode,
+      checkin_status: checkinToken ? "pendente" : "",
+      checkin_at: "",
+      checkin_by: "",
+      confirmation_email_sent_at: "",
+      confirmation_email_error: "",
+      source: data.source || "site",
+      userAgent: data.userAgent || ""
+    });
+    SpreadsheetApp.flush();
+    invalidateGuestSearchCache_();
+    confirmation = { guest, sheet, rowNumber, guestEmail, checkinToken, checkinLink, inviteLink, cancellationLink, qrCode, showDigitalInvite };
+  } finally {
+    lock.releaseLock();
+  }
+
+  let emailResult;
+  try {
+    emailResult = sendRsvpConfirmationEmail_(confirmation.guest, {
+      attendance: data.attendance,
+      companionsConfirmed: companionsConfirmed,
+      companionName: data.companionName || "",
+      email: confirmation.guestEmail,
+      checkinToken: confirmation.checkinToken,
+      checkinLink: confirmation.checkinLink,
+      inviteLink: confirmation.inviteLink,
+      cancellationLink: confirmation.cancellationLink,
+      qrCode: confirmation.qrCode
+    });
+  } catch (error) {
+    emailResult = { sentAt: "", error: String(error.message || error) };
+  }
+  recordConfirmationEmailResult_(confirmation.sheet, confirmation.rowNumber, emailResult);
 
   return jsonResponse(true, {
     message: data.attendance === "confirmed" ? "Presença confirmada com sucesso." : "Resposta registrada com sucesso.",
-    inviteLink: data.attendance === "confirmed" && showDigitalInvite ? inviteLink : ""
+    inviteLink: data.attendance === "confirmed" && confirmation.showDigitalInvite ? confirmation.inviteLink : ""
   });
 }
 
@@ -488,21 +537,28 @@ function handleCancelInfo_(tokenValue) {
 }
 
 function handleCancelRsvp_(data) {
-  const record = findActiveRsvpByCancellationToken_(data.token || data.cancellationToken || "");
-  if (!record) {
-    return jsonResponse(false, null, "Este link de cancelamento não está disponível ou não está mais ativo.");
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) {
+    return jsonResponse(false, null, "O sistema está ocupado. Aguarde alguns segundos e tente novamente.");
   }
 
-  const latest = findLatestRsvpByGuestId_(record.guest_id);
-  if (!latest || latest.attendance !== "confirmed" || latest.cancellation_token !== record.cancellation_token) {
-    return jsonResponse(false, null, "Esta confirmação já foi alterada. Fale diretamente com os noivos.");
-  }
-  if (latest.checkin_at) {
-    return jsonResponse(false, null, "Este convite já foi validado na entrada. Para qualquer ajuste, fale diretamente com os noivos.");
-  }
+  let record;
+  try {
+    record = findActiveRsvpByCancellationToken_(data.token || data.cancellationToken || "");
+    if (!record) {
+      return jsonResponse(false, null, "Este link de cancelamento não está disponível ou não está mais ativo.");
+    }
 
-  const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
-  appendRecord_(sheet, {
+    const latest = findLatestRsvpByGuestId_(record.guest_id);
+    if (!latest || latest.attendance !== "confirmed" || latest.cancellation_token !== record.cancellation_token) {
+      return jsonResponse(false, null, "Esta confirmação já foi alterada. Fale diretamente com os noivos.");
+    }
+    if (latest.checkin_at) {
+      return jsonResponse(false, null, "Este convite já foi validado na entrada. Para qualquer ajuste, fale diretamente com os noivos.");
+    }
+
+    const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
+    appendRecord_(sheet, {
     timestamp: new Date(),
     guest_id: record.guest_id,
     guest_name: record.guest_name,
@@ -527,9 +583,18 @@ function handleCancelRsvp_(data) {
     confirmation_email_error: "",
     source: data.source || "cancelamento_link",
     userAgent: data.userAgent || ""
-  });
+    });
+    SpreadsheetApp.flush();
+    invalidateGuestSearchCache_();
+  } finally {
+    lock.releaseLock();
+  }
 
-  sendCancellationEmail_(record);
+  try {
+    sendCancellationEmail_(record);
+  } catch (error) {
+    console.error("Cancellation email: " + (error.stack || error));
+  }
 
   return jsonResponse(true, {
     message: "Cancelamento registrado com sucesso."
@@ -547,30 +612,74 @@ function handleGuestSearch_(query) {
     return jsonResponse(true, { guests: [] });
   }
 
-  const latestRsvps = getLatestRsvpByGuestIdMap_();
-  const guests = readTableSheet_(SHEETS.CONVIDADOS)
+  const guests = getGuestSearchIndex_()
     .filter(function(guest) {
       const status = normalizeText_(guest.status || "");
       return status !== "cancelado" && status !== "inativo" && normalizeText_(guest.name).indexOf(term) !== -1;
     })
-    .slice(0, 8)
-    .map(function(guest) {
-      const rsvp = latestRsvps[String(guest.guest_id || "").trim()] || null;
-      return {
-        guest_id: guest.guest_id,
-        name: guest.name,
-        group: guest.group || "",
-        allowed_companions: Number(guest.allowed_companions || 0),
-        status: guest.status || "",
-        rsvp: rsvp ? {
-          registered: true,
-          attendance: rsvp.attendance || "",
-          message: RSVP_ALREADY_REGISTERED_MESSAGE
-        } : null
-      };
-    });
+    .slice(0, 8);
 
   return jsonResponse(true, { guests: guests });
+}
+
+function getGuestSearchIndex_(retryCount) {
+  const properties = PropertiesService.getScriptProperties();
+  const revision = properties.getProperty(GUEST_SEARCH_REVISION_KEY) || "0";
+  const cacheKey = GUEST_SEARCH_CACHE_KEY + "_" + revision;
+  const cache = CacheService.getScriptCache();
+  let cached = null;
+  try {
+    cached = cache.get(cacheKey);
+  } catch (error) {
+    console.error("Guest search cache read: " + (error.stack || error));
+  }
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (error) {
+      cache.remove(cacheKey);
+    }
+  }
+
+  const latestRsvps = getLatestRsvpByGuestIdMap_();
+  const guests = readTableSheet_(SHEETS.CONVIDADOS).map(function(guest) {
+    const rsvp = latestRsvps[String(guest.guest_id || "").trim()] || null;
+    return {
+      guest_id: guest.guest_id,
+      name: guest.name,
+      group: guest.group || "",
+      allowed_companions: Number(guest.allowed_companions || 0),
+      status: guest.status || "",
+      rsvp: rsvp ? {
+        registered: true,
+        attendance: rsvp.attendance || "",
+        message: RSVP_ALREADY_REGISTERED_MESSAGE
+      } : null
+    };
+  });
+
+  if ((properties.getProperty(GUEST_SEARCH_REVISION_KEY) || "0") !== revision) {
+    if ((retryCount || 0) < 2) return getGuestSearchIndex_((retryCount || 0) + 1);
+    return guests;
+  }
+
+  try {
+    const serialized = JSON.stringify(guests);
+    if (Utilities.newBlob(serialized).getBytes().length < 90000) {
+      cache.put(cacheKey, serialized, GUEST_SEARCH_CACHE_SECONDS);
+    }
+  } catch (error) {
+    console.error("Guest search cache: " + (error.stack || error));
+  }
+  return guests;
+}
+
+function invalidateGuestSearchCache_() {
+  try {
+    PropertiesService.getScriptProperties().setProperty(GUEST_SEARCH_REVISION_KEY, Utilities.getUuid());
+  } catch (error) {
+    console.error("Guest search cache invalidation: " + (error.stack || error));
+  }
 }
 
 function handleGiftIntent_(data) {
@@ -626,7 +735,6 @@ function handleGiftIntent_(data) {
     source: data.source || "site",
     userAgent: data.userAgent || ""
   });
-
   return jsonResponse(true, {
     orderId,
     status: data.paymentMethod ? "aguardando_pagamento" : "created",
@@ -711,6 +819,7 @@ function handleCheckinValidate_(data) {
     }
 
     markCheckin_(record.rowNumber, operator.name || operator.username);
+    SpreadsheetApp.flush();
 
     record.checkin_at = new Date();
     record.checkin_by = operator.name || operator.username;
@@ -849,19 +958,8 @@ function handleAdminCreateGuest_(data) {
     notes: "Criado pela gestão em " + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm")
   });
 
-  const emailResult = sendRsvpConfirmationEmail_({ name: name }, {
-    attendance: "confirmed",
-    companionsConfirmed: companionsConfirmed,
-    companionName: companionName,
-    email: email,
-    checkinToken: checkinToken,
-    checkinLink: checkinLink,
-    inviteLink: inviteLink,
-    cancellationLink: cancellationLink,
-    qrCode: qrCode
-  });
-
   const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
+  const rowNumber = sheet.getLastRow() + 1;
   appendRecord_(sheet, {
     timestamp: new Date(),
     guest_id: guestId,
@@ -883,11 +981,29 @@ function handleAdminCreateGuest_(data) {
     checkin_status: "pendente",
     checkin_at: "",
     checkin_by: "",
-    confirmation_email_sent_at: emailResult.sentAt || "",
-    confirmation_email_error: emailResult.error || "",
+    confirmation_email_sent_at: "",
+    confirmation_email_error: "",
     source: "gestao_avulsa",
     userAgent: data.userAgent || ""
   });
+  invalidateGuestSearchCache_();
+  let emailResult;
+  try {
+    emailResult = sendRsvpConfirmationEmail_({ name: name }, {
+      attendance: "confirmed",
+      companionsConfirmed: companionsConfirmed,
+      companionName: companionName,
+      email: email,
+      checkinToken: checkinToken,
+      checkinLink: checkinLink,
+      inviteLink: inviteLink,
+      cancellationLink: cancellationLink,
+      qrCode: qrCode
+    });
+  } catch (error) {
+    emailResult = { sentAt: "", error: String(error.message || error) };
+  }
+  recordConfirmationEmailResult_(sheet, rowNumber, emailResult);
 
   return jsonResponse(true, {
     guest: publicAdminGuest_({
@@ -981,6 +1097,7 @@ function handleAdminImportGuests_(data) {
     });
 
     appendRecords_(getOrCreateSheet_(SHEETS.CONVIDADOS, HEADERS.CONVIDADOS), records);
+    invalidateGuestSearchCache_();
     const result = {
       imported: records.length,
       duplicateNames: warnings,
@@ -1011,7 +1128,7 @@ function readKeyValueSheet_(name) {
 
 function getRsvpAvailability_() {
   const config = readKeyValueSheet_(SHEETS.CONFIG);
-  const enabled = parseBooleanConfig_(config.rsvp_enabled, true);
+  const enabled = parseBooleanConfig_(config.rsvp_enabled, false);
   const opensAt = parseConfigDate_(config.rsvp_open_at || config.rsvp_abre_em);
   const closesAt = parseConfigDate_(config.rsvp_close_at || config.rsvp_fecha_em);
   const closedMessage = String(config.rsvp_closed_message || config.mensagem_rsvp_fechado || "").trim();
@@ -1347,15 +1464,32 @@ function markCheckin_(rowNumber, operatorName) {
       return canonicalHeaderForSheet_(SHEETS.RSVP, header);
     });
 
-  setRecordValue_(sheet, rowNumber, headers, "checkin_status", "validado");
-  setRecordValue_(sheet, rowNumber, headers, "checkin_at", new Date());
-  setRecordValue_(sheet, rowNumber, headers, "checkin_by", operatorName);
+  const columns = ["checkin_status", "checkin_at", "checkin_by"].map(function(header) { return headers.indexOf(header); });
+  const values = ["validado", new Date(), operatorName];
+  if (columns.every(function(column, index) { return column !== -1 && (index === 0 || column === columns[index - 1] + 1); })) {
+    sheet.getRange(rowNumber, columns[0] + 1, 1, 3).setValues([values]);
+    return;
+  }
+  ["checkin_status", "checkin_at", "checkin_by"].forEach(function(header, index) {
+    setRecordValue_(sheet, rowNumber, headers, header, values[index]);
+  });
 }
 
 function setRecordValue_(sheet, rowNumber, headers, canonicalHeader, value) {
   const columnIndex = headers.indexOf(canonicalHeader);
   if (columnIndex === -1) return;
   sheet.getRange(rowNumber, columnIndex + 1).setValue(value);
+}
+
+function recordConfirmationEmailResult_(sheet, rowNumber, result) {
+  try {
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+      .map(function(header) { return canonicalHeaderForSheet_(SHEETS.RSVP, header); });
+    setRecordValue_(sheet, rowNumber, headers, "confirmation_email_sent_at", result.sentAt || "");
+    setRecordValue_(sheet, rowNumber, headers, "confirmation_email_error", result.error || "");
+  } catch (error) {
+    console.error("Email status update: " + (error.stack || error));
+  }
 }
 
 function publicCheckinGuest_(record) {
@@ -1785,11 +1919,12 @@ function normalizeText_(value) {
     .trim();
 }
 
-function jsonResponse(ok, data, error) {
+function jsonResponse(ok, data, error, errorCode) {
   const output = {
     ok,
     data,
     error: error || null,
+    errorCode: errorCode || null,
     timestamp: new Date().toISOString()
   };
   return ContentService

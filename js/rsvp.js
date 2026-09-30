@@ -31,9 +31,13 @@ window.WeddingRsvp = {
     this.submitButton = this.form.querySelector('button[type="submit"]');
 
     this.bindEvents();
-    this.applyConfig(window.WEDDING_CONFIG.rsvp || {});
-    if (this.availability.open) this.restoreDraft();
+    this.setUnavailable("Conferindo disponibilidade", "Aguarde enquanto consultamos as confirmações.");
     this.updateSubmitState();
+  },
+
+  setUnavailable(title = "Confirmações temporariamente indisponíveis.", message = "Não foi possível consultar o sistema agora. Atualize a página em instantes.") {
+    this.availability = { open: false, title, message };
+    this.renderAvailability(this.availability);
   },
 
   applyConfig(config = {}) {
@@ -57,6 +61,10 @@ window.WeddingRsvp = {
     this.availability = state;
     this.renderAvailability(state);
     this.scheduleAvailabilityUpdate(settings);
+    if (state.open && !this.draftRestored) {
+      this.draftRestored = true;
+      this.restoreDraft();
+    }
   },
 
   scheduleAvailabilityUpdate(settings) {
@@ -183,9 +191,37 @@ window.WeddingRsvp = {
       if (field) field.checked = true;
     });
 
-    if (draft.selectedGuest) this.selectGuest(draft.selectedGuest, { silent: true });
+    if (draft.selectedGuest) {
+      this.selectGuest(draft.selectedGuest, { silent: true });
+      this.refreshRestoredGuest(draft.selectedGuest);
+    }
     this.updateCompanionVisibility();
     this.updateCompanionNameVisibility();
+  },
+
+  async refreshRestoredGuest(savedGuest) {
+    this.restoringGuest = true;
+    this.updateSubmitState();
+    try {
+      const guests = await window.WeddingApi.searchGuests(savedGuest.name);
+      if (this.selectedGuest?.guest_id !== savedGuest.guest_id) return;
+      const current = guests.find((guest) => guest.guest_id === savedGuest.guest_id);
+      if (current) {
+        this.restoreFailed = false;
+        this.selectGuest(current, { silent: true });
+      } else {
+        this.clearSelectedGuest();
+        this.updateStatus("Confira seu nome novamente na lista de convidados.");
+      }
+    } catch (error) {
+      if (this.selectedGuest?.guest_id === savedGuest.guest_id) {
+        this.restoreFailed = true;
+        this.updateStatus("Não foi possível atualizar seu cadastro agora. Tente novamente em instantes.");
+      }
+    } finally {
+      this.restoringGuest = false;
+      this.updateSubmitState();
+    }
   },
 
   persistDraft() {
@@ -193,6 +229,7 @@ window.WeddingRsvp = {
   },
 
   queueSearch(value) {
+    this.searchToken += 1;
     if (!this.availability.open) {
       this.renderSuggestions([]);
       this.updateStatus(this.availability.message || "As confirmações ainda não estão disponíveis.");
@@ -279,6 +316,7 @@ window.WeddingRsvp = {
 
   clearSelectedGuest() {
     this.selectedGuest = null;
+    this.restoreFailed = false;
     this.guestId.value = "";
     this.selectedBox.hidden = true;
     this.details.hidden = true;
@@ -310,7 +348,7 @@ window.WeddingRsvp = {
   },
 
   updateSubmitState() {
-    if (!this.availability.open) {
+    if (!this.availability.open || this.restoringGuest || this.restoreFailed) {
       this.submitButton.disabled = true;
       return;
     }
@@ -397,17 +435,20 @@ window.WeddingRsvp = {
       window.WeddingCache.remove(window.WEDDING_CONFIG.cache.rsvpDraftKey);
       this.resetForm();
       window.WeddingProcessing?.close();
-      const inviteLink = data.attendance === "confirmed" ? result.inviteLink || "" : "";
-      const confirmationMessage = data.attendance === "confirmed"
-        ? `Agradecemos por confirmar sua presença.${inviteLink ? " Seu convite digital já está disponível." : ""}`
-        : "Agradecemos por nos avisar.";
+      const registeredAttendance = result.alreadyRegistered ? result.attendance : data.attendance;
+      const inviteLink = registeredAttendance === "confirmed" ? result.inviteLink || "" : "";
+      const confirmationMessage = result.alreadyRegistered
+        ? "Obrigado pela sua resposta. Sua confirmação já foi registrada. Caso precise fazer alguma alteração, por favor, entre em contato diretamente com os noivos."
+        : registeredAttendance === "confirmed"
+          ? `Agradecemos por confirmar sua presença.${inviteLink ? " Seu convite digital já está disponível." : ""}`
+          : "Agradecemos por nos avisar.";
       window.WeddingFeedback?.show({
         eyebrow: "Confirmação",
-        title: result.alreadyRegistered ? "Resposta já registrada" : data.attendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
+        title: result.alreadyRegistered ? "Resposta já registrada" : registeredAttendance === "confirmed" ? "Presença confirmada" : "Resposta registrada",
         message: confirmationMessage,
         inviteLink,
         showGifts: true,
-        giftsPrimary: data.attendance !== "confirmed"
+        giftsPrimary: registeredAttendance !== "confirmed"
       });
     } catch (error) {
       this.updateStatus(error.message || "Não foi possível enviar agora. Tente novamente em instantes.");

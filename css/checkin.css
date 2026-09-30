@@ -191,6 +191,20 @@
   line-height: 1.35;
 }
 
+.checkin-offline-mode {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--color-paper);
+  font-size: 0.88rem;
+}
+
+.checkin-offline-mode input {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--color-gold);
+}
+
 .checkin-sync .checkin-button {
   flex: 0 0 auto;
   min-height: 40px;

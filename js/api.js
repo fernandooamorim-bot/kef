@@ -1,6 +1,7 @@
 window.WeddingApi = {
   async requestJson(url, options = {}, fallbackMessage) {
     const timeoutMs = options.timeoutMs || 14000;
+    const startedAt = Date.now();
     const requestOptions = { ...options };
     delete requestOptions.timeoutMs;
     const controller = "AbortController" in window ? new AbortController() : null;
@@ -18,11 +19,20 @@ window.WeddingApi = {
       try {
         payload = text ? JSON.parse(text) : {};
       } catch (error) {
-        throw new Error("Resposta inválida do servidor.");
+        const invalid = new Error("Resposta inválida do servidor.");
+        invalid.kind = "invalid_response";
+        throw invalid;
       }
       return { response, payload };
     } catch (error) {
-      throw new Error(fallbackMessage || "Não foi possível conectar ao sistema agora. Verifique sua internet e tente novamente.");
+      const kind = error.kind || (error.name === "AbortError" ? "timeout" : "network");
+      const failure = new Error(kind === "invalid_response"
+        ? "O servidor enviou uma resposta inválida. Tente novamente em instantes."
+        : fallbackMessage || "Não foi possível conectar ao sistema agora. Verifique sua internet e tente novamente.");
+      failure.kind = kind;
+      failure.retryable = kind === "timeout" || kind === "network";
+      console.warn("WeddingApi", { action: new URL(url).searchParams.get("action") || requestOptions.method || "POST", kind, durationMs: Date.now() - startedAt });
+      throw failure;
     } finally {
       if (timer) window.clearTimeout(timer);
     }
@@ -33,10 +43,18 @@ window.WeddingApi = {
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       try {
-        return await this.requestJson(url, options, fallbackMessage);
+        const result = await this.requestJson(url, options, fallbackMessage);
+        if (result.payload?.errorCode === "SERVER_ERROR" || result.response.status === 429 || result.response.status >= 500) {
+          const failure = new Error(result.payload?.error || fallbackMessage);
+          failure.kind = "server";
+          failure.retryable = true;
+          throw failure;
+        }
+        return result;
       } catch (error) {
         lastError = error;
-        if (attempt < attempts) await this.delay(550 * attempt);
+        if (!error.retryable || attempt === attempts) break;
+        await this.delay(550 * attempt);
       }
     }
 
@@ -47,10 +65,28 @@ window.WeddingApi = {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   },
 
+  async getRsvpStatus() {
+    const config = window.WEDDING_CONFIG;
+    const cacheKey = "kf_rsvp_status_v1";
+    if (!config.appScriptUrl) return null;
+    try {
+      const { response, payload } = await this.requestJsonWithRetry(`${config.appScriptUrl}?action=rsvp_status`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        timeoutMs: 12000
+      }, "Não foi possível consultar as confirmações agora.", 2);
+      if (!response.ok || !payload.ok || !payload.data) return window.WeddingCache.read(cacheKey);
+      window.WeddingCache.write(cacheKey, payload.data, 1);
+      return payload.data;
+    } catch (error) {
+      return window.WeddingCache.read(cacheKey);
+    }
+  },
+
   async getPublicConfig() {
     const config = window.WEDDING_CONFIG;
     const cached = window.WeddingCache.read(config.cache.publicConfigKey);
-    const cachedIsSafe = this.hasUsableGiftList(cached);
+    const cachedIsSafe = Boolean(cached?.config);
 
     if (!config.appScriptUrl) {
       return cachedIsSafe ? cached : config.fallbackData;
@@ -65,8 +101,8 @@ window.WeddingApi = {
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || "Não foi possível carregar as configurações.");
       }
-      if (!this.hasUsableGiftList(payload.data)) {
-        throw new Error("Configuração recebida sem lista de presentes válida.");
+      if (!payload.data?.config) {
+        throw new Error("Configuração do evento não disponível.");
       }
       window.WeddingCache.write(
         config.cache.publicConfigKey,
@@ -76,7 +112,6 @@ window.WeddingApi = {
       return payload.data;
     } catch (error) {
       if (cachedIsSafe) return cached;
-      window.WeddingCache.remove(config.cache.publicConfigKey);
       return config.fallbackData;
     }
   },
@@ -106,8 +141,8 @@ window.WeddingApi = {
     const { response, payload } = await this.requestJsonWithRetry(url, {
       method: "GET",
       headers: { Accept: "application/json" },
-      timeoutMs: 12000
-    }, "Não foi possível buscar a lista de convidados agora. Verifique sua internet e tente novamente.");
+      timeoutMs: 9000
+    }, "Não foi possível buscar a lista de convidados agora. Verifique sua internet e tente novamente.", 2);
     if (!response.ok || !payload.ok) {
       if (payload.error === "Ação GET não reconhecida.") {
         throw new Error("A lista de convidados está sendo atualizada. Tente novamente em instantes.");
@@ -212,8 +247,9 @@ window.WeddingApi = {
     const { response, payload } = await this.requestJson(config.appScriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "rsvp", data })
-    }, "Não foi possível enviar sua confirmação agora. Verifique sua internet e tente novamente.");
+      body: JSON.stringify({ action: "rsvp", data }),
+      timeoutMs: 25000
+    }, "Não foi possível confirmar a resposta do servidor agora. Sua confirmação pode ter sido registrada. Atualize a página e procure seu nome antes de tentar novamente.");
     if (!response.ok || !payload.ok) {
       throw new Error(payload.error || "Não foi possível enviar sua confirmação.");
     }

@@ -48,6 +48,12 @@ Abra a URL do Web App com:
 
 O retorno esperado e um JSON com `ok: true`.
 
+Para verificar somente a disponibilidade da confirmação, use `?action=rsvp_status`.
+Para verificar se o Web App responde sem ler a planilha, use `?action=health`.
+Depois de atualizar `Code.gs`, publique uma **nova versão na implantação existente**. Confirme que `?action=rsvp_status` retorna `ok: true` antes de distribuir a página atualizada. A URL do Web App deve continuar a mesma configurada em `js/config.js`.
+
+A busca pública usa um índice temporário no Apps Script por até 60 segundos. Confirmações, cancelamentos e inclusões feitas pelo próprio sistema invalidam esse índice. Edições manuais na planilha aparecem após o prazo máximo do índice. A confirmação e o check-in consultam os registros atuais.
+
 ## Ações POST
 
 O Apps Script aceita estas ações:
@@ -62,8 +68,8 @@ O Apps Script aceita estas ações:
 
 ## Operação da portaria
 
-Antes de abrir a recepção, cada aparelho da equipe deve entrar em `checkin.html` com internet e clicar em **Atualizar lista**. Isso baixa a lista de confirmações para aquele aparelho e permite validar QR Codes e buscar nomes se a conexão cair depois.
+Antes de abrir a recepção, cada aparelho da equipe deve entrar em `checkin.html` com internet e clicar em **Atualizar lista**. Isso baixa a lista de confirmações para aquele aparelho. A lista offline pode ser usada por até duas horas após a sincronização.
 
-Quando houver internet, a validação é feita diretamente na planilha e bloqueia leituras simultâneas do mesmo QR Code. Sem internet, a entrada é registrada no aparelho e sincronizada assim que a conexão retornar. Para evitar divergências entre aparelhos, mantenha pelo menos um ponto de internet ativo e, se houver queda total, prefira uma única fila/dispositivo de check-in.
+Quando houver internet, a validação é feita diretamente na planilha e bloqueia leituras simultâneas do mesmo QR Code. Em caso de queda, o operador pode marcar **Permitir validação offline neste aparelho** após atualizar a lista. A entrada offline fica registrada no aparelho e é sincronizada quando a conexão voltar. Uma entrada já validada ou cancelada em outro aparelho aparece como conflito e exige conferência manual. Para evitar divergências, prefira uma única fila/dispositivo durante a queda.
 
 Na próxima etapa de pagamento, `PEDIDOS_PRESENTES` também receberá `provider`, `provider_payment_id`, `payment_url`, `status` e `paid_at`.

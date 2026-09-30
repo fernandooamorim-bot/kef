@@ -12,7 +12,7 @@ window.WeddingCheckin = {
   sessionKey: "kf_checkin_operator",
   rosterKey: "kf_checkin_roster_v1",
   offlineQueueKey: "kf_checkin_queue_v1",
-  rosterTtlMs: 7 * 24 * 60 * 60 * 1000,
+  rosterTtlMs: 2 * 60 * 60 * 1000,
 
   init() {
     this.cacheElements();
@@ -50,6 +50,7 @@ window.WeddingCheckin = {
     this.syncButton = document.getElementById("syncRosterButton");
     this.syncStatus = document.getElementById("syncStatus");
     this.syncDetails = document.getElementById("syncDetails");
+    this.offlineModeToggle = document.getElementById("offlineModeToggle");
   },
 
   bindEvents() {
@@ -59,6 +60,14 @@ window.WeddingCheckin = {
     this.stopButton.addEventListener("click", () => this.stopScanner());
     this.manualForm.addEventListener("submit", (event) => this.searchManual(event));
     this.syncButton?.addEventListener("click", () => this.syncRoster());
+    this.offlineModeToggle?.addEventListener("change", () => {
+      if (this.offlineModeToggle.checked && this.isRosterStale()) {
+        this.offlineModeToggle.checked = false;
+        this.renderSyncState("Atualize a lista antes de ativar o modo offline.");
+      } else {
+        this.renderSyncState(this.offlineModeToggle.checked ? "Modo offline autorizado neste aparelho." : "Validação online ativa.");
+      }
+    });
   },
 
   restoreSession() {
@@ -67,8 +76,11 @@ window.WeddingCheckin = {
       this.credentials = saved;
       this.showApp(saved.name || saved.username);
       this.renderSyncState();
-      this.syncRoster({ silent: true });
-      if (this.pendingToken) this.validateToken(this.pendingToken);
+      if (this.pendingToken) {
+        this.validateToken(this.pendingToken).finally(() => this.syncRoster({ silent: true }));
+      } else {
+        this.syncRoster({ silent: true });
+      }
     }
   },
 
@@ -91,8 +103,11 @@ window.WeddingCheckin = {
       this.showApp(this.credentials.name);
       this.loginStatus.textContent = "";
       this.renderSyncState();
-      await this.syncRoster({ silent: true });
-      if (this.pendingToken) this.validateToken(this.pendingToken);
+      if (this.pendingToken) {
+        this.validateToken(this.pendingToken).finally(() => this.syncRoster({ silent: true }));
+      } else {
+        this.syncRoster({ silent: true });
+      }
     } catch (error) {
       this.loginStatus.textContent = error.message || "Não foi possível entrar.";
     }
@@ -100,6 +115,7 @@ window.WeddingCheckin = {
 
   logout() {
     this.stopScanner();
+    if (this.offlineModeToggle) this.offlineModeToggle.checked = false;
     this.clearSession();
     this.credentials = null;
     this.app.hidden = true;
@@ -236,7 +252,7 @@ window.WeddingCheckin = {
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
         return;
       }
-      if (this.isConnectionError(error) && this.validateOffline(token, options)) return;
+      if (this.offlineModeToggle?.checked && this.isConnectionError(error) && this.validateOffline(token, options)) return;
       this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
       if (options.scrollToResult) this.scrollToResult();
       this.afterValidation("invalid", "Falha na validação");
@@ -269,7 +285,7 @@ window.WeddingCheckin = {
       const guests = this.searchOfflineGuests(query);
       if (guests.length) {
         this.renderManualResults(guests);
-        this.setSyncState("Modo offline", "Busca feita na última lista sincronizada.");
+        this.setSyncState("Busca local", "Resultado da última lista sincronizada.");
         return;
       }
       this.manualResults.innerHTML = `<p class="checkin-status">${this.escape(error.message || "Não foi possível buscar.")}</p>`;
@@ -284,13 +300,19 @@ window.WeddingCheckin = {
     try {
       const queueResult = await this.flushOfflineQueue();
       const result = await window.WeddingApi.syncCheckinRoster(this.credentials);
-      this.writeRoster(result.guests || [], result.syncedAt || new Date().toISOString());
+      if (!Array.isArray(result?.guests)) {
+        throw new Error("O servidor não enviou uma lista válida.");
+      }
+      if (!this.writeRoster(result.guests, result.syncedAt || new Date().toISOString())) {
+        throw new Error("Não foi possível salvar a lista neste aparelho.");
+      }
       const suffix = queueResult.pending
         ? ` ${queueResult.pending} validação(ões) ainda aguardam internet.`
         : queueResult.synced
           ? ` ${queueResult.synced} validação(ões) offline foram sincronizadas.`
           : "";
-      this.renderSyncState(`Lista atualizada.${suffix}`);
+      const conflicts = queueResult.conflicts ? ` ${queueResult.conflicts} entrada(s) exigem conferência manual.` : "";
+      this.renderSyncState(`Lista atualizada.${suffix}${conflicts}`);
       return true;
     } catch (error) {
       if (this.isInvalidSessionError(error)) {
@@ -298,7 +320,7 @@ window.WeddingCheckin = {
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
         return false;
       }
-      this.renderSyncState("Modo offline: usando a última lista disponível.");
+      this.renderSyncState("Não foi possível atualizar a lista agora.");
       return false;
     } finally {
       if (this.syncButton) this.syncButton.disabled = false;
@@ -307,18 +329,27 @@ window.WeddingCheckin = {
 
   async flushOfflineQueue() {
     const queue = this.readOfflineQueue();
-    if (!queue.length) return { synced: 0, pending: 0 };
+    if (!queue.length) return { synced: 0, pending: 0, conflicts: 0 };
 
     const remaining = [];
     let synced = 0;
+    let conflicts = 0;
     for (const item of queue) {
+      if (item.conflict) {
+        remaining.push(item);
+        conflicts += 1;
+        continue;
+      }
       try {
         const result = await window.WeddingApi.validateCheckin({
           ...this.credentials,
           token: item.token
         });
-        if (result.status === "allowed" || result.status === "used") {
+        if (result.status === "allowed") {
           synced += 1;
+        } else if (result.status === "used" || result.status === "invalid") {
+          remaining.push({ ...item, conflict: true });
+          conflicts += 1;
         } else {
           remaining.push(item);
         }
@@ -326,8 +357,8 @@ window.WeddingCheckin = {
         remaining.push(item);
       }
     }
-    this.writeOfflineQueue(remaining);
-    return { synced, pending: remaining.length };
+    if (!this.writeOfflineQueue(remaining)) throw new Error("Não foi possível atualizar as validações pendentes neste aparelho.");
+    return { synced, pending: remaining.filter((item) => !item.conflict).length, conflicts };
   },
 
   validateOffline(token, options = {}) {
@@ -351,14 +382,19 @@ window.WeddingCheckin = {
       return true;
     }
 
+    const checkedInAt = new Date().toISOString();
+    if (!this.writeOfflineQueue([...this.readOfflineQueue(), {
+      token: guest.token,
+      checkedInAt
+    }])) {
+      this.showResult("invalid", "Não foi possível salvar", guest.name, "Este aparelho não conseguiu registrar a entrada offline.");
+      this.afterValidation("invalid", "Não foi possível salvar");
+      return true;
+    }
     guest.checkinStatus = "validado";
-    guest.checkinAt = new Date().toISOString();
+    guest.checkinAt = checkedInAt;
     guest.checkinBy = this.credentials?.name || this.credentials?.username || "Equipe";
     this.updateOfflineGuest(guest);
-    this.writeOfflineQueue([...this.readOfflineQueue(), {
-      token: guest.token,
-      checkedInAt: guest.checkinAt
-    }]);
     this.renderValidation({
       status: "allowed",
       title: "Entrada liberada (offline)",
@@ -447,9 +483,12 @@ window.WeddingCheckin = {
     }
     const date = new Date(roster.syncedAt);
     const label = Number.isNaN(date.getTime()) ? "data desconhecida" : this.formatDate(date);
-    const pending = queue.length ? ` ${queue.length} validação(ões) pendente(s).` : "";
+    const pendingCount = queue.filter((item) => !item.conflict).length;
+    const conflictCount = queue.length - pendingCount;
+    const pending = pendingCount ? ` ${pendingCount} validação(ões) pendente(s).` : "";
+    const conflicts = conflictCount ? ` ${conflictCount} entrada(s) exigem conferência manual.` : "";
     const stale = this.isRosterStale() ? " A lista precisa ser atualizada antes de uso offline." : "";
-    this.setSyncState(message || "Lista disponível neste aparelho.", `${roster.guests.length} confirmações sincronizadas em ${label}.${pending}${stale}`);
+    this.setSyncState(message || "Lista disponível neste aparelho.", `${roster.guests.length} confirmações sincronizadas em ${label}.${pending}${conflicts}${stale}`);
   },
 
   setSyncState(status, details = "") {
@@ -458,7 +497,7 @@ window.WeddingCheckin = {
   },
 
   isConnectionError(error) {
-    return /não foi possível conectar|não foi possível concluir/i.test(String(error?.message || error || ""));
+    return error?.kind === "network" || error?.kind === "timeout";
   },
 
   extractToken(value) {

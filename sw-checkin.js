@@ -1,4 +1,4 @@
-const CHECKIN_CACHE = "kf-checkin-v11";
+const CHECKIN_CACHE = "kf-checkin-v12";
 const CHECKIN_ASSETS = [
   "./checkin.html",
   "./convite.html",
@@ -50,19 +50,20 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  const isCachedCheckinAsset = url.origin === self.location.origin
-    && CHECKIN_ASSETS.includes(`.${url.pathname}`);
-  if (!isCachedCheckinAsset) return;
+  if (url.origin !== self.location.origin) return;
+  const asset = CHECKIN_ASSETS.find((path) => new URL(path, self.registration.scope).pathname === url.pathname);
+  if (!asset) return;
+  const cacheKey = new URL(asset, self.registration.scope);
 
   event.respondWith(
     fetch(request)
       .then((response) => {
         if (response && (response.ok || response.type === "opaque")) {
           const copy = response.clone();
-          caches.open(CHECKIN_CACHE).then((cache) => cache.put(request, copy));
+          caches.open(CHECKIN_CACHE).then((cache) => cache.put(cacheKey, copy));
         }
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() => caches.match(cacheKey))
   );
 });

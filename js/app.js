@@ -138,10 +138,24 @@ const app = {
     this.initReveal();
     window.WeddingRsvp.init();
     window.WeddingGifts.init(this.withLocalGifts(window.WEDDING_CONFIG.fallbackData));
-    window.WeddingApi.getPublicConfig().then((data) => {
+    const publicConfig = window.WeddingApi.getPublicConfig().then((data) => {
       this.applyRemoteConfig(data);
       this.initReveal();
+      return data;
+    }).catch((error) => {
+      console.warn("Configuração do site", error);
+      return null;
     });
+    window.WeddingApi.getRsvpStatus().then((status) => {
+      if (status) {
+        window.WeddingRsvp.applyConfig(status);
+      } else {
+        publicConfig.then((data) => {
+          if (data?.config) window.WeddingRsvp.applyConfig(data.config);
+          else window.WeddingRsvp.setUnavailable();
+        });
+      }
+    }).catch(() => window.WeddingRsvp.setUnavailable());
   },
 
   withLocalGifts(data) {
@@ -152,6 +166,9 @@ const app = {
   },
 
   applyRemoteConfig(data) {
+    if (!data?.config) {
+      return;
+    }
     const remote = data?.config || {};
     const heroImage = remote.hero_image || window.WEDDING_CONFIG.heroImage;
     const resolvedHero = this.resolveGalleryImage(heroImage);
@@ -167,8 +184,7 @@ const app = {
       mobile: remote.hero_video_mobile || remote.hero_video || window.WEDDING_CONFIG.heroVideoMobile
     });
 
-    window.WeddingRsvp.applyConfig(remote);
-    window.WeddingGifts.update(data);
+    if (window.WeddingApi.hasUsableGiftList(data)) window.WeddingGifts.update(data);
   },
 
   resolveGalleryImage(value) {
