@@ -309,6 +309,13 @@ window.WeddingApi = {
     });
   },
 
+  async respondAdminGuest(data) {
+    return this.checkinRequest("admin_respond_guest", {
+      ...data,
+      userAgent: navigator.userAgent
+    });
+  },
+
   async createAdminGuest(data) {
     return this.checkinRequest("admin_create_guest", {
       ...data,

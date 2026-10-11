@@ -286,6 +286,10 @@ function doPost(e) {
       return handleAdminSummary_(body.data || {});
     }
 
+    if (action === "admin_respond_guest") {
+      return handleAdminRespondGuest_(body.data || {});
+    }
+
     if (action === "admin_create_guest") {
       return handleAdminCreateGuest_(body.data || {});
     }
@@ -902,18 +906,134 @@ function handleAdminSummary_(data) {
   const totals = rows.reduce(function(acc, row) {
     acc.total += 1;
     acc[row.status] = (acc[row.status] || 0) + 1;
-    acc.people += Number(row.totalPeople || 0);
+    const invited = 1 + Math.max(0, Number(row.allowedCompanions) || 0);
+    const confirmed = Number(row.totalPeople || 0);
+    const pending = row.status === "pending" ? invited : 0;
+    acc.invitedPeople += invited;
+    acc.confirmedPeople += confirmed;
+    acc.pendingPeople += pending;
+    acc.releasedPeople += invited - confirmed - pending;
+    if (row.status === "declined") acc.declinedPeople += invited;
+    if (row.status === "cancelled") acc.cancelledPeople += invited;
+    if (row.status === "confirmed") acc.unusedCompanions += invited - confirmed;
     return acc;
-  }, { total: 0, confirmed: 0, declined: 0, cancelled: 0, pending: 0, people: 0 });
+  }, {
+    total: 0, confirmed: 0, declined: 0, cancelled: 0, pending: 0,
+    invitedPeople: 0, confirmedPeople: 0, pendingPeople: 0, releasedPeople: 0,
+    declinedPeople: 0, cancelledPeople: 0, unusedCompanions: 0
+  });
+  totals.projectedPeople = totals.confirmedPeople + totals.pendingPeople;
+  totals.people = totals.confirmedPeople;
 
   return jsonResponse(true, {
     operator: {
       username: operator.username,
       name: operator.name
     },
+    capabilities: { adminRespondGuest: true },
     totals: totals,
     guests: rows
   });
+}
+
+function handleAdminRespondGuest_(data) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+
+  const guestId = String(data.guestId || "").trim();
+  const attendance = String(data.attendance || "").trim();
+  const companionsConfirmed = Number(data.companionsConfirmed || 0);
+  if (!guestId || ["confirmed", "declined"].indexOf(attendance) === -1) {
+    return jsonResponse(false, null, "Selecione um convidado e a resposta recebida.");
+  }
+  if (!Number.isInteger(companionsConfirmed) || companionsConfirmed < 0 || (attendance === "declined" && companionsConfirmed !== 0)) {
+    return jsonResponse(false, null, "Quantidade de acompanhantes inválida.");
+  }
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) {
+    return jsonResponse(false, null, "A lista está sendo atualizada. Aguarde e tente novamente.");
+  }
+
+  try {
+    const guest = findGuestById_(guestId);
+    const guestStatus = normalizeText_(guest && guest.status || "");
+    if (!guest || guestStatus === "cancelado" || guestStatus === "inativo") {
+      return jsonResponse(false, null, "Convidado não encontrado na lista ativa.");
+    }
+
+    const existing = findLatestRsvpByGuestId_(guestId);
+    if (existing) {
+      return jsonResponse(true, {
+        alreadyRegistered: true,
+        guest: publicAdminGuest_(guest, existing),
+        message: "Este convidado já possui uma resposta registrada. Atualize a lista."
+      });
+    }
+
+    if (companionsConfirmed > Number(guest.allowed_companions || 0)) {
+      return jsonResponse(false, null, "A quantidade de acompanhantes supera o convite.");
+    }
+
+    const checkinToken = attendance === "confirmed" ? createCheckinToken_(guestId) : "";
+    const checkinLink = checkinToken ? buildCheckinLink_(checkinToken) : "";
+    const inviteLink = checkinToken ? buildInviteLink_(checkinToken) : "";
+    const cancellationToken = checkinToken ? createCancellationToken_(guestId) : "";
+    const cancellationLink = cancellationToken ? buildCancellationLink_(cancellationToken) : "";
+    const phone = String(guest.phone || "").trim();
+    const email = String(guest.email || "").trim();
+    const companionName = attendance === "confirmed" ? String(data.companionName || "").trim() : "";
+    const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
+
+    appendRecord_(sheet, {
+      timestamp: new Date(),
+      guest_id: guestId,
+      guest_name: guest.name,
+      name: guest.name,
+      attendance: attendance,
+      companions_confirmed: companionsConfirmed,
+      companion_name: companionName,
+      companion: companionName,
+      phone: phone,
+      whatsapp_link: "",
+      email: email,
+      checkin_token: checkinToken,
+      checkin_link: checkinLink,
+      invite_link: inviteLink,
+      cancellation_token: cancellationToken,
+      cancellation_link: cancellationLink,
+      qr_code: checkinLink ? buildQrCodeUrl_(checkinLink) : "",
+      checkin_status: checkinToken ? "pendente" : "",
+      checkin_at: "",
+      checkin_by: "",
+      confirmation_email_sent_at: "",
+      confirmation_email_error: "",
+      source: "gestao_manual:" + (operator.name || operator.username),
+      userAgent: data.userAgent || ""
+    });
+    SpreadsheetApp.flush();
+    invalidateGuestSearchCache_();
+
+    return jsonResponse(true, {
+      guest: publicAdminGuest_(guest, {
+        attendance: attendance,
+        companions_confirmed: companionsConfirmed,
+        companion_name: companionName,
+        phone: phone,
+        email: email,
+        checkin_token: checkinToken,
+        checkin_link: checkinLink,
+        invite_link: inviteLink,
+        cancellation_token: cancellationToken,
+        cancellation_link: cancellationLink,
+        qr_code: checkinLink ? buildQrCodeUrl_(checkinLink) : "",
+        checkin_status: checkinToken ? "pendente" : ""
+      }),
+      message: attendance === "confirmed" ? "Presença registrada pela gestão. O convite está disponível nos detalhes." : "Ausência registrada pela gestão."
+    });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function handleAdminCreateGuest_(data) {
@@ -1576,7 +1696,7 @@ function publicAdminGuest_(guest, rsvp) {
     guestId: guest.guest_id || "",
     name: guest.name || guest.guest_name || "",
     group: guest.group || "",
-    allowedCompanions: Number(guest.allowed_companions || 0),
+    allowedCompanions: Math.max(0, Number(guest.allowed_companions) || 0),
     status: status,
     statusLabel: adminStatusLabel_(status),
     totalPeople: status === "confirmed" ? 1 + companions : 0,

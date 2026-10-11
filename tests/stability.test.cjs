@@ -86,6 +86,107 @@ test("RSVP não envia email quando a gravação falha", () => {
   assert.equal(events.includes("unlock"), true);
 });
 
+test("gestão registra presença sem contato, cria QR e não duplica resposta", () => {
+  const { context, events, rows } = backend();
+  context.validateOperator_ = () => ({ ok: true, username: "equipe", name: "Equipe" });
+  context.findGuestById_ = () => ({ guest_id: "KF001", name: "Pessoa Teste", status: "ativo", allowed_companions: 1, phone: "", email: "" });
+  const data = { guestId: "KF001", attendance: "confirmed", companionsConfirmed: 1, companionName: "Acompanhante" };
+  const first = context.handleAdminRespondGuest_(data);
+  const second = context.handleAdminRespondGuest_(data);
+  assert.equal(first.ok, true);
+  assert.equal(first.data.guest.inviteLink, "https://example.test/convite");
+  assert.equal(first.data.guest.totalPeople, 2);
+  assert.equal(rows[0].source, "gestao_manual:Equipe");
+  assert.equal(rows[0].email, "");
+  assert.equal(second.data.alreadyRegistered, true);
+  assert.equal(rows.length, 1);
+  assert.equal(events.includes("email"), false);
+  assert.equal(events.includes("flush"), true);
+});
+
+test("gestão registra ausência sem QR e impede acompanhantes acima do convite", () => {
+  const { context, rows } = backend();
+  context.validateOperator_ = () => ({ ok: true, username: "equipe" });
+  context.findGuestById_ = () => ({ guest_id: "KF001", name: "Pessoa Teste", status: "ativo", allowed_companions: 1 });
+  const invalid = context.handleAdminRespondGuest_({ guestId: "KF001", attendance: "confirmed", companionsConfirmed: 2 });
+  assert.equal(invalid.ok, false);
+  assert.equal(rows.length, 0);
+  const declined = context.handleAdminRespondGuest_({ guestId: "KF001", attendance: "declined", companionsConfirmed: 0 });
+  assert.equal(declined.ok, true);
+  assert.equal(rows[0].checkin_token, "");
+  assert.equal(rows[0].attendance, "declined");
+});
+
+test("quadro administrativo separa vagas convidadas, confirmadas e liberadas", () => {
+  const { context } = backend();
+  context.validateOperator_ = () => ({ ok: true, username: "equipe" });
+  context.readTableSheet_ = () => [
+    { guest_id: "KF001", name: "Primeira", status: "ativo", allowed_companions: 1 },
+    { guest_id: "KF002", name: "Segunda", status: "ativo", allowed_companions: 1 },
+    { guest_id: "KF003", name: "Terceira", status: "ativo", allowed_companions: 2 }
+  ];
+  context.getLatestRsvpByGuestIdMap_ = () => ({
+    KF001: { attendance: "confirmed", companions_confirmed: 0 },
+    KF002: { attendance: "declined", companions_confirmed: 0 }
+  });
+  const result = context.handleAdminSummary_({});
+  assert.equal(result.data.capabilities.adminRespondGuest, true);
+  assert.equal(result.data.totals.invitedPeople, 7);
+  assert.equal(result.data.totals.confirmedPeople, 1);
+  assert.equal(result.data.totals.pendingPeople, 3);
+  assert.equal(result.data.totals.releasedPeople, 3);
+  assert.equal(result.data.totals.projectedPeople, 4);
+  assert.equal(result.data.totals.declinedPeople, 2);
+  assert.equal(result.data.totals.unusedCompanions, 1);
+});
+
+test("painel administrativo só envia resposta depois da confirmação", async () => {
+  let requests = 0;
+  const window = { WeddingApi: { respondAdminGuest: async () => {
+    requests += 1;
+    return { message: "Presença registrada pela gestão." };
+  } } };
+  const context = vm.createContext({ window, document: { addEventListener: () => {} }, console });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/admin.js"), "utf8"), context);
+  const admin = window.WeddingAdmin;
+  admin.credentials = { sessionToken: "test" };
+  admin.guests = [{ guestId: "KF001", name: "Pessoa Teste", status: "pending", allowedCompanions: 1 }];
+  admin.responseForm = { reset() {}, elements: { companionsConfirmed: { value: "1", innerHTML: "" }, companionName: { value: "Acompanhante" } } };
+  admin.responseStatus = { textContent: "" };
+  admin.responseMode = { textContent: "" };
+  admin.responseTitle = { textContent: "" };
+  admin.responseDescription = { textContent: "" };
+  admin.responseCompanionFields = { hidden: true };
+  admin.responseSubmit = { textContent: "", disabled: false };
+  admin.responseCancel = { disabled: false };
+  admin.responseDialog = { showModal() {}, close() {} };
+  admin.loadSummary = async () => true;
+  admin.showActionFeedback = () => {};
+  admin.openResponse("KF001", "confirmed");
+  assert.equal(requests, 0);
+  await admin.submitResponse({ preventDefault() {} });
+  assert.equal(requests, 1);
+  assert.equal(admin.responseSubmit.disabled, false);
+});
+
+test("painel oculta ações manuais até o Apps Script oferecer suporte", () => {
+  const window = {};
+  const context = vm.createContext({ window, document: { addEventListener: () => {} }, console });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/admin.js"), "utf8"), context);
+  const admin = window.WeddingAdmin;
+  admin.guests = [{ guestId: "KF001", name: "Pessoa Teste", group: "Família", status: "pending", statusLabel: "Falta confirmar", allowedCompanions: 1 }];
+  admin.search = { value: "" };
+  admin.groupSelect = { value: "" };
+  admin.listCount = { textContent: "" };
+  admin.list = { innerHTML: "" };
+  assert.equal(admin.escape(0), "0");
+  admin.renderList();
+  assert.equal(admin.list.innerHTML.includes("data-admin-response"), false);
+  admin.manualResponseAvailable = true;
+  admin.renderList();
+  assert.equal(admin.list.innerHTML.includes("data-admin-response"), true);
+});
+
 test("frontend não reenvia RSVP após falha de rede", async () => {
   let requests = 0;
   const window = {

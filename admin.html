@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#4e5a42">
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/admin.css?v=admin-card-priority-20260917">
+    <link rel="stylesheet" href="css/admin.css?v=admin-capacity-20261011">
   </head>
   <body class="admin-page">
     <main class="admin-shell">
@@ -40,6 +40,8 @@
         </header>
 
         <section class="admin-summary" id="adminSummary"></section>
+        <p class="admin-capacity-note">Vagas convidadas incluem titulares e acompanhantes permitidos. A projeção soma presenças confirmadas às vagas ainda sem resposta.</p>
+        <p class="admin-action-feedback" id="adminActionFeedback" role="status" hidden></p>
 
         <section class="admin-panel admin-import" id="adminImportPanel" hidden>
           <div class="admin-panel__header">
@@ -103,18 +105,29 @@
             <button type="button" data-filter="cancelled">Cancelados</button>
           </div>
 
-          <label class="admin-sort">
-            <span>Ordenar por</span>
-            <select id="adminSort">
-              <option value="sheet">Ordem atual</option>
-              <option value="name">Nome (A–Z)</option>
-            </select>
-          </label>
+          <div class="admin-list-controls">
+            <label class="admin-sort">
+              <span>Ordenar por</span>
+              <select id="adminSort">
+                <option value="sheet">Ordem atual</option>
+                <option value="name">Nome (A–Z)</option>
+              </select>
+            </label>
+
+            <label class="admin-group">
+              <span>Grupo</span>
+              <select id="adminGroupFilter">
+                <option value="">Todos os grupos</option>
+              </select>
+            </label>
+          </div>
 
           <label class="admin-search">
             <span>Buscar</span>
             <input id="adminSearch" autocomplete="off" placeholder="Nome, grupo ou telefone">
           </label>
+
+          <p class="admin-list-count" id="adminListCount" aria-live="polite"></p>
 
           <div class="admin-list" id="adminGuestList"></div>
         </section>
@@ -160,11 +173,33 @@
           </form>
         </section>
       </section>
+      <dialog class="admin-response-dialog" id="adminResponseDialog" aria-labelledby="adminResponseTitle">
+        <form id="adminResponseForm">
+          <p class="admin-response-dialog__eyebrow" id="adminResponseMode"></p>
+          <h2 id="adminResponseTitle"></h2>
+          <p id="adminResponseDescription"></p>
+          <div class="admin-response-dialog__companion" id="adminResponseCompanionFields" hidden>
+            <label>
+              <span>Acompanhantes confirmados</span>
+              <select name="companionsConfirmed"></select>
+            </label>
+            <label>
+              <span>Nome do acompanhante (se souber)</span>
+              <input name="companionName" autocomplete="off">
+            </label>
+          </div>
+          <p class="admin-status" id="adminResponseStatus" role="status"></p>
+          <div class="admin-response-dialog__actions">
+            <button class="admin-button admin-button--ghost" type="button" id="adminResponseCancel">Voltar</button>
+            <button class="admin-button" type="submit" id="adminResponseSubmit">Registrar resposta</button>
+          </div>
+        </form>
+      </dialog>
     </main>
 
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
-    <script src="js/api.js?v=stability-20260929"></script>
-    <script src="js/admin.js?v=admin-preserve-list-20260922"></script>
+    <script src="js/api.js?v=admin-capacity-20261011"></script>
+    <script src="js/admin.js?v=admin-capacity-20261011"></script>
   </body>
 </html>

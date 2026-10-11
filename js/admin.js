@@ -15,10 +15,22 @@ window.WeddingAdmin = {
     this.operatorName = document.getElementById("adminOperatorName");
     this.logoutButton = document.getElementById("adminLogoutButton");
     this.summary = document.getElementById("adminSummary");
+    this.actionFeedback = document.getElementById("adminActionFeedback");
     this.list = document.getElementById("adminGuestList");
+    this.responseDialog = document.getElementById("adminResponseDialog");
+    this.responseForm = document.getElementById("adminResponseForm");
+    this.responseMode = document.getElementById("adminResponseMode");
+    this.responseTitle = document.getElementById("adminResponseTitle");
+    this.responseDescription = document.getElementById("adminResponseDescription");
+    this.responseCompanionFields = document.getElementById("adminResponseCompanionFields");
+    this.responseStatus = document.getElementById("adminResponseStatus");
+    this.responseSubmit = document.getElementById("adminResponseSubmit");
+    this.responseCancel = document.getElementById("adminResponseCancel");
     this.filters = document.getElementById("adminFilters");
     this.search = document.getElementById("adminSearch");
     this.sortSelect = document.getElementById("adminSort");
+    this.groupSelect = document.getElementById("adminGroupFilter");
+    this.listCount = document.getElementById("adminListCount");
     this.refreshButton = document.getElementById("refreshAdminButton");
     this.createForm = document.getElementById("adminCreateForm");
     this.createStatus = document.getElementById("adminCreateStatus");
@@ -48,11 +60,22 @@ window.WeddingAdmin = {
     this.loginForm.addEventListener("submit", (event) => this.login(event));
     this.logoutButton.addEventListener("click", () => this.logout());
     this.refreshButton.addEventListener("click", () => this.loadSummary());
+    this.list.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-admin-response]");
+      if (button) this.openResponse(button.dataset.guestId, button.dataset.adminResponse);
+    });
+    this.responseForm.addEventListener("submit", (event) => this.submitResponse(event));
+    this.responseCancel.addEventListener("click", () => this.responseDialog.close());
+    this.responseDialog.addEventListener("close", () => { this.selectedResponse = null; });
+    this.responseDialog.addEventListener("cancel", (event) => {
+      if (this.responseSubmit.disabled) event.preventDefault();
+    });
     this.search.addEventListener("input", () => this.renderList());
     this.sortSelect.addEventListener("change", () => {
       this.sortMode = this.sortSelect.value;
       this.renderList();
     });
+    this.groupSelect.addEventListener("change", () => this.renderList());
     this.filters.addEventListener("click", (event) => {
       const button = event.target.closest("[data-filter]");
       if (!button) return;
@@ -101,6 +124,7 @@ window.WeddingAdmin = {
   },
 
   logout() {
+    if (this.responseDialog.open) this.responseDialog.close();
     this.clearSession();
     this.credentials = null;
     this.guests = [];
@@ -164,8 +188,16 @@ window.WeddingAdmin = {
     try {
       const result = await window.WeddingApi.getAdminSummary(this.credentials);
       this.guests = result.guests || [];
+      this.manualResponseAvailable = result.capabilities?.adminRespondGuest === true;
       this.renderSummary(result.totals || {});
+      this.renderGroupOptions();
       this.renderList();
+      if (!this.manualResponseAvailable) {
+        this.showActionFeedback("warning", "Para registrar respostas por esta página, atualize primeiro o Apps Script. A lista permanece disponível para consulta.", true);
+      } else if (this.actionFeedback.dataset.backendNotice === "true") {
+        this.actionFeedback.hidden = true;
+        this.actionFeedback.dataset.backendNotice = "false";
+      }
     } catch (error) {
       if (this.isInvalidSessionError(error)) {
         this.logout();
@@ -178,14 +210,35 @@ window.WeddingAdmin = {
     return true;
   },
 
+  renderGroupOptions() {
+    const selected = this.groupSelect.value;
+    const groups = [...new Set(this.guests.map((guest) => String(guest.group || "").trim()).filter(Boolean))]
+      .sort((first, second) => first.localeCompare(second, "pt-BR", { sensitivity: "base" }));
+    this.groupSelect.innerHTML = "";
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = "Todos os grupos";
+    this.groupSelect.appendChild(all);
+    groups.forEach((group) => {
+      const option = document.createElement("option");
+      option.value = group;
+      option.textContent = group;
+      this.groupSelect.appendChild(option);
+    });
+    this.groupSelect.value = groups.includes(selected) ? selected : "";
+  },
+
   renderSummary(totals) {
+    const metric = (value) => Number.isFinite(value) ? value : "—";
     const items = [
-      ["Total", totals.total || 0],
-      ["Confirmados", totals.confirmed || 0],
-      ["Pessoas", totals.people || 0],
-      ["Faltam", totals.pending || 0],
-      ["Não vão", totals.declined || 0],
-      ["Cancelados", totals.cancelled || 0]
+      ["Convites", totals.total || 0],
+      ["Vagas convidadas", metric(totals.invitedPeople)],
+      ["Presenças confirmadas", metric(totals.confirmedPeople)],
+      ["Vagas em aberto", metric(totals.pendingPeople)],
+      ["Vagas liberadas", metric(totals.releasedPeople)],
+      ["Projeção máxima", metric(totals.projectedPeople)],
+      ["Faltam responder", totals.pending || 0],
+      ["Não vão / cancelaram", (totals.declined || 0) + (totals.cancelled || 0)]
     ];
     this.summary.innerHTML = items.map(([label, value]) => `
       <div>
@@ -193,16 +246,25 @@ window.WeddingAdmin = {
         <strong>${this.escape(value)}</strong>
       </div>
     `).join("");
+    const counts = { all: totals.total, confirmed: totals.confirmed, pending: totals.pending, declined: totals.declined, cancelled: totals.cancelled };
+    this.filters.querySelectorAll("[data-filter]").forEach((button) => {
+      const label = button.dataset.label || button.textContent.trim();
+      button.dataset.label = label;
+      button.textContent = `${label} (${Number(counts[button.dataset.filter] || 0)})`;
+    });
   },
 
   renderList() {
     const term = this.normalize(this.search.value);
     const guests = this.guests.filter((guest) => {
       if (this.filter !== "all" && guest.status !== this.filter) return false;
+      if (this.groupSelect.value && String(guest.group || "").trim() !== this.groupSelect.value) return false;
       if (!term) return true;
       return this.normalize(`${guest.name} ${guest.group} ${guest.phone} ${guest.email}`).includes(term);
     });
     this.sortGuests(guests);
+    const invitedPeople = guests.reduce((total, guest) => total + 1 + Math.max(0, Number(guest.allowedCompanions) || 0), 0);
+    this.listCount.textContent = `${guests.length} de ${this.guests.length} convites · ${invitedPeople} vagas convidadas neste filtro`;
 
     if (!guests.length) {
       this.list.innerHTML = '<p class="admin-status">Nenhum convidado encontrado.</p>';
@@ -216,7 +278,7 @@ window.WeddingAdmin = {
           <strong>${this.escape(guest.name)}</strong>
         </div>
         <dl class="admin-guest__keyfacts">
-          <div><dt>Pessoas</dt><dd>${this.escape(guest.totalPeople || 0)}</dd></div>
+          <div><dt>Pessoas</dt><dd>${this.escape(guest.status === "pending" ? `até ${1 + Number(guest.allowedCompanions || 0)}` : guest.totalPeople || 0)}</dd></div>
           <div><dt>Acompanhante</dt><dd>${this.escape(this.describeCompanionState(guest))}</dd></div>
           <div><dt>Check-in</dt><dd>${this.escape(guest.checkinStatus || "-")}</dd></div>
           <div><dt>Última resposta</dt><dd>${this.escape(this.formatDate(guest.lastResponseAt) || "-")}</dd></div>
@@ -234,8 +296,73 @@ window.WeddingAdmin = {
             ${guest.cancellationLink ? `<a href="${this.escapeAttr(guest.cancellationLink)}" target="_blank" rel="noopener">Cancelar</a>` : ""}
           </div>
         </details>
+        ${guest.status === "pending" && this.manualResponseAvailable ? `<div class="admin-guest__actions">
+          <button class="admin-button admin-button--small" type="button" data-admin-response="confirmed" data-guest-id="${this.escapeAttr(guest.guestId)}">Confirmar presença</button>
+          <button class="admin-button admin-button--small admin-button--ghost" type="button" data-admin-response="declined" data-guest-id="${this.escapeAttr(guest.guestId)}">Registrar ausência</button>
+        </div>` : ""}
       </article>
     `).join("");
+  },
+
+  openResponse(guestId, attendance) {
+    const guest = this.guests.find((item) => item.guestId === guestId);
+    if (!guest || guest.status !== "pending" || !["confirmed", "declined"].includes(attendance)) return;
+    this.selectedResponse = { guestId, attendance };
+    this.responseForm.reset();
+    this.responseStatus.textContent = "";
+    this.responseMode.textContent = attendance === "confirmed" ? "Confirmar presença" : "Registrar ausência";
+    this.responseTitle.textContent = guest.name;
+    this.responseDescription.textContent = attendance === "confirmed"
+      ? "A resposta será registrada e o convite com QR ficará disponível nos detalhes. Nenhum e-mail será enviado."
+      : "A resposta será registrada como não comparecimento. Nenhum e-mail será enviado.";
+    this.responseCompanionFields.hidden = attendance !== "confirmed" || Number(guest.allowedCompanions || 0) === 0;
+    this.responseForm.elements.companionsConfirmed.innerHTML = Array.from(
+      { length: Math.max(0, Number(guest.allowedCompanions || 0)) + 1 },
+      (_, count) => `<option value="${count}">${count}</option>`
+    ).join("");
+    this.responseSubmit.textContent = attendance === "confirmed" ? "Confirmar presença" : "Registrar ausência";
+    this.responseDialog.showModal();
+  },
+
+  async submitResponse(event) {
+    event.preventDefault();
+    const selected = this.selectedResponse;
+    if (!selected || this.responseSubmit.disabled || !this.credentials) return;
+    this.responseSubmit.disabled = true;
+    this.responseCancel.disabled = true;
+    this.responseStatus.textContent = "Registrando resposta...";
+    try {
+      const result = await window.WeddingApi.respondAdminGuest({
+        ...this.credentials,
+        ...selected,
+        companionsConfirmed: selected.attendance === "confirmed" ? Number(this.responseForm.elements.companionsConfirmed.value || 0) : 0,
+        companionName: selected.attendance === "confirmed" ? this.responseForm.elements.companionName.value.trim() : ""
+      });
+      const refreshed = await this.loadSummary();
+      this.responseDialog.close();
+      this.showActionFeedback(
+        refreshed && !result.alreadyRegistered ? "success" : "warning",
+        refreshed ? result.message : `${result.message} Não foi possível atualizar a lista agora; confira na planilha antes de repetir a ação.`
+      );
+    } catch (error) {
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
+        return;
+      }
+      this.responseStatus.textContent = `${error.message || "Não foi possível registrar."} Se a conexão caiu após o envio, atualize a lista antes de tentar novamente.`;
+    } finally {
+      this.responseSubmit.disabled = false;
+      this.responseCancel.disabled = false;
+    }
+  },
+
+  showActionFeedback(mode, message, backendNotice = false) {
+    this.actionFeedback.hidden = false;
+    this.actionFeedback.className = `admin-action-feedback is-${mode}`;
+    this.actionFeedback.textContent = message;
+    this.actionFeedback.dataset.backendNotice = String(backendNotice);
+    this.actionFeedback.scrollIntoView({ behavior: "smooth", block: "nearest" });
   },
 
   sortGuests(guests) {
@@ -439,6 +566,10 @@ window.WeddingAdmin = {
   },
 
   describeCompanionState(guest) {
+    if (guest.status === "pending") {
+      const allowed = Math.max(0, Number(guest.allowedCompanions) || 0);
+      return allowed ? `Até ${allowed}` : "Não";
+    }
     return Number(guest.companionsConfirmed || 0) > 0 ? "Sim" : "Não";
   },
 
@@ -463,7 +594,7 @@ window.WeddingAdmin = {
   },
 
   escape(value) {
-    return String(value || "")
+    return String(value ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
