@@ -2,7 +2,7 @@ window.WeddingAdmin = {
   credentials: null,
   guests: [],
   filter: "all",
-  sortMode: "sheet",
+  sortMode: "recent",
   importRows: [],
   importId: "",
   sessionKey: "kf_admin_operator",
@@ -232,13 +232,13 @@ window.WeddingAdmin = {
     const metric = (value) => Number.isFinite(value) ? value : "—";
     const items = [
       ["Convites", totals.total || 0],
-      ["Vagas convidadas", metric(totals.invitedPeople)],
+      ["Pessoas convidadas", metric(totals.invitedPeople)],
       ["Presenças confirmadas", metric(totals.confirmedPeople)],
-      ["Vagas em aberto", metric(totals.pendingPeople)],
-      ["Vagas liberadas", metric(totals.releasedPeople)],
-      ["Projeção máxima", metric(totals.projectedPeople)],
+      ["Presenças possíveis", metric(totals.projectedPeople)],
+      ["Aguardando resposta", metric(totals.pendingPeople)],
       ["Faltam responder", totals.pending || 0],
-      ["Não vão / cancelaram", (totals.declined || 0) + (totals.cancelled || 0)]
+      ["Não vão / cancelaram", (totals.declined || 0) + (totals.cancelled || 0)],
+      ["Vagas liberadas", metric(totals.releasedPeople)],
     ];
     this.summary.innerHTML = items.map(([label, value]) => `
       <div>
@@ -367,6 +367,13 @@ window.WeddingAdmin = {
 
   sortGuests(guests) {
     if (this.sortMode === "sheet") return guests;
+    if (this.sortMode === "recent") {
+      return guests.sort((first, second) => {
+        const firstDate = first.lastResponseAt ? new Date(first.lastResponseAt).getTime() : 0;
+        const secondDate = second.lastResponseAt ? new Date(second.lastResponseAt).getTime() : 0;
+        return (Number.isFinite(secondDate) ? secondDate : 0) - (Number.isFinite(firstDate) ? firstDate : 0);
+      });
+    }
     return guests.sort((first, second) => {
       return String(first.name || "").localeCompare(String(second.name || ""), "pt-BR", {
         numeric: true,

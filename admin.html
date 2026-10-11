@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#4e5a42">
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/admin.css?v=admin-capacity-20261011">
+    <link rel="stylesheet" href="css/admin.css?v=admin-labels-20261011">
   </head>
   <body class="admin-page">
     <main class="admin-shell">
@@ -40,7 +40,7 @@
         </header>
 
         <section class="admin-summary" id="adminSummary"></section>
-        <p class="admin-capacity-note">Vagas convidadas incluem titulares e acompanhantes permitidos. A projeção soma presenças confirmadas às vagas ainda sem resposta.</p>
+        <p class="admin-capacity-note">Pessoas convidadas incluem titulares e acompanhantes permitidos. Aguardando resposta soma as vagas dos convites pendentes; lugares liberados incluem recusas, cancelamentos e acompanhantes não confirmados.</p>
         <p class="admin-action-feedback" id="adminActionFeedback" role="status" hidden></p>
 
         <section class="admin-panel admin-import" id="adminImportPanel" hidden>
@@ -109,7 +109,8 @@
             <label class="admin-sort">
               <span>Ordenar por</span>
               <select id="adminSort">
-                <option value="sheet">Ordem atual</option>
+                <option value="recent" selected>Resposta mais recente</option>
+                <option value="sheet">Ordem da planilha</option>
                 <option value="name">Nome (A–Z)</option>
               </select>
             </label>
@@ -200,6 +201,6 @@
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
     <script src="js/api.js?v=admin-capacity-20261011"></script>
-    <script src="js/admin.js?v=admin-capacity-20261011"></script>
+    <script src="js/admin.js?v=admin-labels-20261011"></script>
   </body>
 </html>
