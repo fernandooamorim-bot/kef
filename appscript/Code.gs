@@ -949,9 +949,16 @@ function handleAdminGiftPayment_(data, cancel) {
     const alreadyConfirmed = paidStatuses.indexOf(status) >= 0 || Boolean(item.row[paidColumn]);
     // Preserve the first confirmation timestamp when a response is lost and retried.
     const paidAt = item.row[paidColumn] || new Date();
-    setRecordValue_(sheet, item.number, headers, "paid_at", paidAt);
-    setRecordValue_(sheet, item.number, headers, "status", "pago");
-    SpreadsheetApp.flush();
+    let changed = false;
+    if (!item.row[paidColumn]) {
+      setRecordValue_(sheet, item.number, headers, "paid_at", paidAt);
+      changed = true;
+    }
+    if (item.row[statusColumn] !== "pago") {
+      setRecordValue_(sheet, item.number, headers, "status", "pago");
+      changed = true;
+    }
+    if (changed) SpreadsheetApp.flush();
     return jsonResponse(true, { orderId: orderId, status: "pago", paidAt: paidAt, alreadyConfirmed: alreadyConfirmed });
   } finally {
     lock.releaseLock();
@@ -1322,8 +1329,11 @@ function handleAdminImportGuests_(data) {
   }
 }
 
+// Reuse only the spreadsheet handle within this execution; never cache its cell data.
+let executionSpreadsheet_ = null;
 function getSpreadsheet_() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (!executionSpreadsheet_) executionSpreadsheet_ = SpreadsheetApp.openById(SPREADSHEET_ID);
+  return executionSpreadsheet_;
 }
 
 function readKeyValueSheet_(name) {
@@ -1556,7 +1566,8 @@ function validateOperatorSession_(token) {
     const username = String(payload.username || "").trim().toLowerCase();
     if (!username || !payload.fingerprint) return { ok: false, error: "Sessão inválida. Faça login novamente." };
 
-    getOrCreateSheet_(SHEETS.OPERADORES, HEADERS.OPERADORES);
+    // A signed session must refer to an existing operator. Reading canonical headers
+    // is sufficient; schema creation/repair belongs to setup/login, not every action.
     const operator = readTableSheet_(SHEETS.OPERADORES).find(function(item) {
       return String(item.username || "").trim().toLowerCase() === username &&
         isEnabled_(item.ativo !== undefined ? item.ativo : item.enabled);

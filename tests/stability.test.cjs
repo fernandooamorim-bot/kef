@@ -501,3 +501,55 @@ test("reconciliação distingue cancelamento salvo, resultado incerto e erro de 
   api.getAdminGifts = async () => { throw Error("Não deveria consultar"); };
   await assert.rejects(api.confirmAdminGift({ orderId: "P1" }), /Sessão inválida/);
 });
+
+test("planilha é aberta uma vez por execução sem armazenar dados das células", () => {
+  const { context } = backend();
+  let opens = 0;
+  const sheet = {};
+  context.SpreadsheetApp.openById = () => { opens++; return sheet; };
+  assert.equal(context.getSpreadsheet_(), sheet);
+  assert.equal(context.getSpreadsheet_(), sheet);
+  assert.equal(opens, 1);
+});
+
+test("sessão valida dados atuais sem reconfigurar cabeçalhos e revoga acesso imediatamente", () => {
+  const { context } = backend();
+  const crypto = require("node:crypto");
+  context.Utilities.base64EncodeWebSafe = value => Buffer.from(value).toString("base64url");
+  context.Utilities.base64DecodeWebSafe = value => Buffer.from(value, "base64url");
+  context.Utilities.computeHmacSha256Signature = (value, secret) => crypto.createHmac("sha256", secret).update(value).digest();
+  context.Utilities.newBlob = value => ({ getDataAsString: () => Buffer.from(value).toString() });
+  context.getOrCreateSheet_ = () => { throw Error("Não deve configurar cabeçalhos na validação"); };
+  const operator = { username: "operador", password: "original", ativo: true };
+  let reads = 0;
+  context.readTableSheet_ = () => { reads++; return [operator]; };
+  const token = context.createOperatorSession_(operator);
+  assert.equal(context.validateOperatorSession_(token).ok, true);
+  operator.password = "nova";
+  assert.equal(context.validateOperatorSession_(token).ok, false);
+  operator.password = "original";
+  operator.ativo = false;
+  assert.equal(context.validateOperatorSession_(token).ok, false);
+  assert.equal(reads, 3);
+  assert.equal(context.validateOperatorSession_(token + "x").ok, false);
+  assert.equal(reads, 3);
+});
+
+test("pagamento já confirmado não regrava células; gravação parcial é concluída", () => {
+  const { context, events } = backend();
+  const values = [["codigo_pedido", "status", "pago_em"], ["P1", "pago", "2026-10-21"]];
+  const writes = [];
+  context.validateOperator_ = () => ({ ok: true });
+  context.getSpreadsheet_ = () => ({ getSheetByName: () => ({
+    getDataRange: () => ({ getValues: () => values.map(row => [...row]) }),
+    getRange: (row, column) => ({ setValue: value => { writes.push(column); values[row - 1][column - 1] = value; } })
+  }) });
+  assert.equal(context.handleAdminConfirmGift_({ orderId: "P1" }).data.alreadyConfirmed, true);
+  assert.equal(writes.length, 0);
+  assert.equal(events.includes("flush"), false);
+  values[1][1] = "pendente";
+  assert.equal(context.handleAdminConfirmGift_({ orderId: "P1" }).ok, true);
+  assert.deepEqual(writes, [2]);
+  assert.equal(values[1][2], "2026-10-21");
+  assert.ok(events.includes("flush"));
+});
