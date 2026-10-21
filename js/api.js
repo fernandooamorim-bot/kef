@@ -312,6 +312,22 @@ window.WeddingApi = {
     });
   },
 
+  async createAdminGift(data) {
+    try {
+      return await this.checkinRequest("admin_create_gift", data, { timeoutMs: 35000, message: "A resposta do cadastro não chegou. Tente novamente com os mesmos dados; o registro não será duplicado." });
+    } catch (error) {
+      if (!["timeout", "network", "invalid_response", "server"].includes(error.kind)) throw error;
+      try {
+        const result = await this.getAdminGifts(data);
+        const orderId = `MANUAL-${data.requestId}`;
+        if (result?.gifts?.some((gift) => gift.orderId === orderId)) return { orderId, alreadyRegistered: true };
+      } catch (readError) {
+        if (readError.kind === "business") throw readError;
+      }
+      throw error;
+    }
+  },
+
   async cancelAdminGift(data, onProgress) {
     return this.updateAdminGift("admin_cancel_gift", data, onProgress);
   },

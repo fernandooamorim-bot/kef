@@ -290,6 +290,10 @@ function doPost(e) {
       return handleAdminConfirmGift_(body.data || {});
     }
 
+    if (action === "admin_create_gift") {
+      return handleAdminCreateGift_(body.data || {});
+    }
+
     if (action === "admin_gifts") {
       return handleAdminGifts_(body.data || {});
     }
@@ -965,6 +969,46 @@ function handleAdminGiftPayment_(data, cancel) {
   }
 }
 
+function handleAdminCreateGift_(data) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+  const requestId = String(data.requestId || "");
+  const name = String(data.name || "").trim();
+  const title = String(data.title || "").trim();
+  const type = String(data.type || "");
+  const date = String(data.receivedDate || "");
+  const amount = type === "physical" ? 0 : Number(data.amount);
+  if (!/^[a-zA-Z0-9-]{16,80}$/.test(requestId) || !name || name.length > 150 || !title || title.length > 200 ||
+      ["pix", "transfer", "cash", "physical"].indexOf(type) < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      !Number.isFinite(amount) || (type !== "physical" && (amount < 0.01 || amount > 10000000))) {
+    return jsonResponse(false, null, "Confira nome, descrição, data e valor do presente.");
+  }
+  const receivedAt = new Date(date + "T12:00:00-03:00");
+  if (isNaN(receivedAt.getTime()) || receivedAt.toISOString().slice(0, 10) !== date || date > Utilities.formatDate(new Date(), "America/Fortaleza", "yyyy-MM-dd")) {
+    return jsonResponse(false, null, "Informe uma data de recebimento válida, até hoje.");
+  }
+  const orderId = "MANUAL-" + requestId;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return jsonResponse(false, null, "Outro registro está sendo salvo. Tente novamente.");
+  try {
+    const existing = readTableSheet_(SHEETS.PEDIDOS_PRESENTES).find(function(row) { return row.order_id === orderId; });
+    if (existing) return jsonResponse(true, { orderId: orderId, alreadyRegistered: true });
+    const sheet = getOrCreateSheet_(SHEETS.PEDIDOS_PRESENTES, HEADERS.PEDIDOS_PRESENTES);
+    // Prevent user text from becoming a spreadsheet formula.
+    const safeText = function(value) { return /^[=+@-]/.test(value) ? "'" + value : value; };
+    appendRecord_(sheet, {
+      order_id: orderId, created_at: receivedAt, gift_id: "manual", gift_title: safeText(title),
+      name: safeText(name), giver_name: safeText(name), amount: type === "physical" ? "" : Math.round(amount * 100) / 100,
+      status: type === "physical" ? "recebido" : "pago", paid_at: type === "physical" ? "" : receivedAt,
+      provider: "manual_" + type, source: "admin_manual"
+    });
+    SpreadsheetApp.flush();
+    return jsonResponse(true, { orderId: orderId, alreadyRegistered: false });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function handleAdminGifts_(data) {
   const operator = validateOperator_(data);
   if (!operator.ok) return jsonResponse(false, null, operator.error);
@@ -979,10 +1023,11 @@ function handleAdminGifts_(data) {
       paidAt: row.paid_at || "",
       status: row.status || "",
       paymentMethod: row.payment_method || (row.provider === "pix" ? "pix" : row.provider === "pagbank" ? "card" : ""),
+      source: row.source || "",
       provider: row.provider || ""
     };
   });
-  return jsonResponse(true, { gifts: gifts, capabilities: { confirmGift: true, cancelGift: true } });
+  return jsonResponse(true, { gifts: gifts, capabilities: { confirmGift: true, cancelGift: true, createGift: true } });
 }
 
 function handleAdminSummary_(data) {

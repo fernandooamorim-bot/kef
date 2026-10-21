@@ -712,3 +712,7 @@
 
 .admin-button--cancel { background: transparent; color: #924242; border: 1px solid #b77878; }
 .admin-gift__status--cancelled { background: #eee9e4; color: #63574e; }
+
+.admin-gift__status--physical { background: #e5efe7; color: #285d3a; }
+#adminManualGiftPanel h3 { margin: 0; }
+#adminManualGiftProgress { grid-column: 1 / -1; }

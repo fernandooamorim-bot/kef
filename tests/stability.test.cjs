@@ -585,3 +585,45 @@ test("carregamento de convidados preserva lista, mostra progresso e descarta res
   assert.match(admin.guestsStatus.textContent, /lista anterior foi mantida/);
   assert.equal(admin.guestsLoading.hidden, true);
 });
+
+test("presente manual valida dados, dispensa contato e não duplica após resposta perdida", () => {
+  const { context, rows } = backend();
+  context.validateOperator_ = () => ({ ok: true });
+  context.Utilities.formatDate = () => "2026-10-21";
+  context.readTableSheet_ = () => rows;
+  const data = { requestId: "manual-test-123456789", name: "Ana", title: "Pix recebido", type: "pix", amount: 250, receivedDate: "2026-10-20" };
+  assert.equal(context.handleAdminCreateGift_(data).ok, true);
+  assert.equal(rows[0].amount, 250);
+  assert.equal(rows[0].status, "pago");
+  assert.equal(rows[0].provider, "manual_pix");
+  assert.equal(rows[0].phone, undefined);
+  assert.equal(context.handleAdminCreateGift_(data).data.alreadyRegistered, true);
+  assert.equal(rows.length, 1);
+  const physical = { ...data, requestId: "physical-test-123456789", type: "physical", amount: null, title: "Jogo de jantar" };
+  assert.equal(context.handleAdminCreateGift_(physical).ok, true);
+  assert.equal(rows[1].amount, "");
+  assert.equal(rows[1].paid_at, "");
+  assert.equal(rows[1].status, "recebido");
+  for (const invalid of [{ amount: 0 }, { amount: -1 }, { amount: 0.001 }, { receivedDate: "2026-02-30" }, { receivedDate: "2027-01-01" }, { name: "" }, { type: "unknown" }]) {
+    assert.equal(context.handleAdminCreateGift_({ ...data, ...invalid }).ok, false);
+  }
+  context.validateOperator_ = () => ({ ok: false, error: "Sessão inválida" });
+  assert.equal(context.handleAdminCreateGift_(data).ok, false);
+  assert.equal(rows.length, 2);
+});
+
+test("presente físico fica no histórico sem compor valores financeiros", () => {
+  const context = vm.createContext({ window: {}, document: { addEventListener() {} }, Intl });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/admin.js"), "utf8"), context);
+  const admin = context.window.WeddingAdmin;
+  admin.giftsLoaded = true;
+  admin.gifts = [{ name: "Ana", title: "Jogo de jantar", provider: "manual_physical", source: "admin_manual", status: "recebido", amount: 0 }];
+  admin.giftsSummary = {}; admin.giftsCount = {}; admin.giftList = {};
+  admin.giftSearch = { value: "" }; admin.giftSort = { value: "recent" }; admin.giftStatusFilter = { value: "physical" };
+  admin.renderGifts();
+  assert.match(admin.giftList.innerHTML, /Sem valor atribuído/);
+  assert.match(admin.giftList.innerHTML, /Lançamento manual/);
+  assert.doesNotMatch(admin.giftList.innerHTML, /data-confirm-gift|data-cancel-gift/);
+  assert.match(admin.giftsSummary.innerHTML, /Físicos recebidos/);
+  assert.equal(admin.giftPaymentState(admin.gifts[0]), "physical");
+});

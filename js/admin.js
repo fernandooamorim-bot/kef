@@ -59,6 +59,23 @@ window.WeddingAdmin = {
     this.importFeedbackMessage = document.getElementById("adminImportFeedbackMessage");
     this.importFeedbackClose = document.getElementById("adminImportFeedbackClose");
 
+    this.manualGiftForm = document.getElementById("adminManualGiftForm");
+    this.manualGiftPanel = document.getElementById("adminManualGiftPanel");
+    this.manualGiftToggle = document.getElementById("adminManualGiftToggle");
+    this.manualGiftStatus = document.getElementById("adminManualGiftStatus");
+    this.manualGiftProgress = document.getElementById("adminManualGiftProgress");
+    this.manualGiftToggle.addEventListener("click", () => {
+      this.manualGiftPanel.hidden = !this.manualGiftPanel.hidden;
+      this.manualGiftToggle.setAttribute("aria-expanded", String(!this.manualGiftPanel.hidden));
+      if (!this.manualGiftPanel.hidden && !this.manualGiftForm.elements.receivedDate.value) {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        this.manualGiftForm.elements.receivedDate.value = today;
+        this.manualGiftForm.elements.receivedDate.max = today;
+      }
+    });
+    this.manualGiftForm.elements.type.addEventListener("change", () => this.updateManualGiftType());
+    this.manualGiftForm.addEventListener("submit", (event) => this.saveManualGift(event));
     this.giftDialog = document.getElementById("adminGiftDialog");
     this.giftConfirmForm = document.getElementById("adminGiftConfirmForm");
     this.giftDialogTitle = document.getElementById("adminGiftDialogTitle");
@@ -169,6 +186,14 @@ window.WeddingAdmin = {
   },
 
   logout() {
+    if (this.manualGiftForm) {
+      this.manualGiftForm.reset();
+      this.manualGiftPayload = null;
+      this.manualGiftPanel.hidden = true;
+      this.manualGiftToggle.hidden = true;
+      this.manualGiftToggle.setAttribute("aria-expanded", "false");
+      this.manualGiftStatus.textContent = "";
+    }
     if (this.giftDialog?.open) this.giftDialog.close();
     this.confirmGiftAvailable = false;
     this.cancelGiftAvailable = false;
@@ -261,6 +286,7 @@ window.WeddingAdmin = {
       if (!Array.isArray(result?.gifts)) throw new Error("Atualize a implantação do Apps Script para consultar os presentes.");
       this.confirmGiftAvailable = result.capabilities?.confirmGift === true;
       this.cancelGiftAvailable = result.capabilities?.cancelGift === true;
+      this.manualGiftToggle.hidden = result.capabilities?.createGift !== true;
       this.gifts = result.gifts;
       this.giftsLoaded = true;
       this.renderGifts();
@@ -279,6 +305,55 @@ window.WeddingAdmin = {
         this.refreshGiftsButton.disabled = false;
         this.giftsView.setAttribute("aria-busy", "false");
       }
+    }
+  },
+
+  updateManualGiftType() {
+    const physical = this.manualGiftForm.elements.type.value === "physical";
+    document.getElementById("adminManualGiftAmount").hidden = physical;
+    this.manualGiftForm.elements.amount.required = !physical;
+    this.manualGiftForm.elements.amount.disabled = physical;
+  },
+
+  async saveManualGift(event) {
+    event.preventDefault();
+    if (this.manualGiftBusy || !this.credentials) return;
+    const fields = this.manualGiftForm.elements;
+    const credentials = this.credentials;
+    const payload = this.manualGiftPayload || {
+      requestId: this.createImportId(), name: fields.name.value.trim(), title: fields.title.value.trim(),
+      type: fields.type.value, receivedDate: fields.receivedDate.value,
+      amount: fields.type.value === "physical" ? null : Number(fields.amount.value)
+    };
+    this.manualGiftPayload = payload;
+    this.manualGiftBusy = true;
+    this.manualGiftProgress.hidden = false;
+    this.manualGiftStatus.textContent = "";
+    this.manualGiftForm.setAttribute("aria-busy", "true");
+    Array.from(fields).forEach((field) => { field.disabled = true; });
+    try {
+      const result = await window.WeddingApi.createAdminGift({ ...credentials, ...payload });
+      if (this.credentials !== credentials) return;
+      if (result?.orderId !== `MANUAL-${payload.requestId}`) throw new Error("O servidor não confirmou o cadastro. Tente novamente.");
+      this.manualGiftPayload = null;
+      this.manualGiftForm.reset();
+      this.manualGiftStatus.textContent = "Presente registrado. Atualizando os totais...";
+      this.giftsRequest += 1;
+      this.giftsLoading = false;
+      await this.loadGifts();
+      if (this.credentials !== credentials) return;
+      this.manualGiftStatus.textContent = "Presente registrado com sucesso. Se a lista não foi atualizada, use Atualizar presentes.";
+    } catch (error) {
+      if (this.credentials !== credentials) return;
+      if (this.isInvalidSessionError(error)) { this.logout(); this.loginStatus.textContent = "Faça login novamente."; return; }
+      if (error.kind === "business") this.manualGiftPayload = null;
+      this.manualGiftStatus.textContent = `${error.message || "Não foi possível salvar."}${this.manualGiftPayload ? " Os dados foram mantidos para repetir o mesmo cadastro com segurança." : ""}`;
+    } finally {
+      this.manualGiftBusy = false;
+      this.manualGiftProgress.hidden = true;
+      this.manualGiftForm.setAttribute("aria-busy", "false");
+      Array.from(fields).forEach((field) => { field.disabled = Boolean(this.manualGiftPayload) && field.type !== "submit"; });
+      if (!this.manualGiftPayload) this.updateManualGiftType();
     }
   },
 
@@ -354,6 +429,7 @@ window.WeddingAdmin = {
   },
 
   giftPaymentState(gift) {
+    if (gift.provider === "manual_physical" && gift.status === "recebido") return "physical";
     const status = this.normalize(gift.status).trim();
     if (["cancelled", "cancelado"].includes(status)) return "cancelled";
     if (["refunded", "reembolsado", "estornado", "rejected", "recusado"].includes(status)) return "other";
@@ -398,7 +474,8 @@ window.WeddingAdmin = {
       ["Valor pendente", money(pendingTotal)],
       ["Total ativo · recebido + pendente", money(paidTotal + pendingTotal)],
       ["Pedidos pendentes", pending.length],
-      ["Pedidos cancelados", cancelled.length]
+      ["Pedidos cancelados", cancelled.length],
+      ["Físicos recebidos · sem valor", this.gifts.filter((gift) => this.giftPaymentState(gift) === "physical").length]
     ].map(([label, value]) => `<div><span>${this.escape(label)}</span><strong>${this.escape(value)}</strong></div>`).join("");
     const term = this.normalize(this.giftSearch.value);
     const gifts = this.sortGifts(this.gifts.filter((gift) => {
@@ -408,11 +485,12 @@ window.WeddingAdmin = {
     this.giftsCount.textContent = `${gifts.length} de ${this.gifts.length} presentes`;
     this.giftList.innerHTML = gifts.length ? gifts.map((gift) => {
       const state = this.giftPaymentState(gift);
-      const label = state === "paid" ? "Pagamento confirmado" : state === "pending" ? "Aguardando confirmação" : state === "cancelled" ? "Pedido cancelado" : gift.status || "Não informado";
-      const method = gift.paymentMethod === "pix" ? "Pix" : gift.paymentMethod === "card" ? "Cartão · PagBank" : gift.paymentMethod || gift.provider || "Não informada";
+      const label = state === "physical" ? "Presente físico recebido" : state === "paid" ? "Pagamento confirmado" : state === "pending" ? "Aguardando confirmação" : state === "cancelled" ? "Pedido cancelado" : gift.status || "Não informado";
+      const method = gift.paymentMethod === "pix" ? "Pix" : gift.paymentMethod === "card" ? "Cartão · PagBank" : ({ manual_pix: "Pix fora do site", manual_transfer: "Transferência bancária", manual_cash: "Dinheiro", manual_physical: "Presente físico" }[gift.provider] || gift.paymentMethod || gift.provider || "Não informada");
       return `<article class="admin-gift">
-        <div class="admin-gift__heading"><div><span class="admin-gift__status admin-gift__status--${state}">${this.escape(label)}</span><h3>${this.escape(gift.name || "Remetente não informado")}</h3><p>${this.escape(gift.title || "Presente sem descrição")}</p></div><strong class="admin-gift__amount">${this.escape(money(this.giftAmount(gift)))}</strong></div>
-        <dl class="admin-gift__facts"><div><dt>Data do presente</dt><dd>${this.escape(this.formatDate(gift.createdAt) || "Não informada")}</dd></div><div><dt>Forma de pagamento</dt><dd>${this.escape(method)}</dd></div>${gift.paidAt ? `<div><dt>Pagamento confirmado em</dt><dd>${this.escape(this.formatDate(gift.paidAt))}</dd></div>` : ""}</dl>
+        <div class="admin-gift__heading"><div><span class="admin-gift__status admin-gift__status--${state}">${this.escape(label)}</span><h3>${this.escape(gift.name || "Remetente não informado")}</h3><p>${this.escape(gift.title || "Presente sem descrição")}</p></div><strong class="admin-gift__amount">${gift.provider === "manual_physical" ? "Sem valor atribuído" : this.escape(money(this.giftAmount(gift)))}</strong></div>
+        <dl class="admin-gift__facts"><div><dt>${gift.source === "admin_manual" ? "Data do recebimento" : "Data do presente"}</dt><dd>${this.escape(this.formatDate(gift.createdAt) || "Não informada")}</dd></div><div><dt>${gift.provider === "manual_physical" ? "Tipo" : "Forma de pagamento"}</dt><dd>${this.escape(method)}</dd></div>${gift.paidAt ? `<div><dt>Pagamento confirmado em</dt><dd>${this.escape(this.formatDate(gift.paidAt))}</dd></div>` : ""}</dl>
+        ${gift.source === "admin_manual" ? '<p class="admin-list-count">Lançamento manual · recebido fora do site</p>' : ""}
         <div class="admin-gift__message"><span>Mensagem enviada</span><p>${this.escape(gift.message || "Nenhuma mensagem enviada.")}</p></div>
         ${state === "pending" && gift.orderId ? `<div class="admin-guest__actions">
           ${this.confirmGiftAvailable ? `<button class="admin-button admin-button--small" type="button" data-confirm-gift="${this.escapeAttr(gift.orderId)}">Confirmar recebimento</button>` : ""}

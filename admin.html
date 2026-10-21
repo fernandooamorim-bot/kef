@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#4e5a42">
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/admin.css?v=admin-guests-loading-20261021">
+    <link rel="stylesheet" href="css/admin.css?v=admin-manual-gifts-20261021">
   </head>
   <body class="admin-page">
     <main class="admin-shell">
@@ -187,16 +187,33 @@
         <section id="adminGiftsView" class="admin-panel" hidden aria-labelledby="adminGiftsTitle">
           <div class="admin-panel__header">
             <div><p>Carinho em cada gesto</p><h2 id="adminGiftsTitle">Presentes recebidos</h2></div>
-            <button class="admin-button admin-button--small" type="button" id="refreshGiftsButton">Atualizar presentes</button>
+            <div class="admin-panel__actions">
+              <button class="admin-button admin-button--small" type="button" id="adminManualGiftToggle" aria-expanded="false" aria-controls="adminManualGiftPanel" hidden>Adicionar presente recebido</button>
+              <button class="admin-button admin-button--small" type="button" id="refreshGiftsButton">Atualizar presentes</button>
+            </div>
           </div>
           <p class="admin-gifts-note">Acompanhe os presentes e as mensagens. Confira o pagamento na sua conta e use “Confirmar recebimento”. Apenas pagamentos confirmados entram no total recebido. O total ativo soma recebidos e pendentes; cancelados ficam fora. Os indicadores consideram todos os registros, independentemente dos filtros.</p>
+          <section class="admin-panel" id="adminManualGiftPanel" hidden aria-labelledby="adminManualGiftTitle">
+            <h3 id="adminManualGiftTitle">Recebido fora do site</h3>
+            <p class="admin-gifts-note">Cadastre apenas o que já recebeu. Valores em dinheiro entram no total recebido; presentes físicos ficam no histórico, sem valor. Não cadastre novamente um presente já registrado no site.</p>
+            <form class="admin-create" id="adminManualGiftForm">
+              <label><span>Quem presenteou</span><input name="name" maxlength="150" required></label>
+              <label><span>Tipo</span><select name="type"><option value="pix">Pix fora do site</option><option value="transfer">Transferência bancária</option><option value="cash">Dinheiro</option><option value="physical">Presente físico (sem valor)</option></select></label>
+              <label><span>Descrição do presente</span><input name="title" maxlength="200" placeholder="Ex.: Pix recebido ou jogo de jantar" required></label>
+              <label><span>Data do recebimento</span><input name="receivedDate" type="date" required></label>
+              <label id="adminManualGiftAmount"><span>Valor recebido (R$)</span><input name="amount" type="number" min="0.01" max="10000000" step="0.01" inputmode="decimal" required></label>
+              <button class="admin-button" type="submit">Registrar presente recebido</button>
+              <div class="admin-import__progress" id="adminManualGiftProgress" role="status" hidden><span class="admin-import__spinner" aria-hidden="true"></span><strong>Salvando presente...</strong></div>
+              <p class="admin-status" id="adminManualGiftStatus" role="status"></p>
+            </form>
+          </section>
           <div class="admin-summary admin-gifts-summary" id="adminGiftsSummary"></div>
           <div class="admin-gifts-controls">
             <label class="admin-search"><span>Buscar presente</span><input id="adminGiftSearch" type="search" placeholder="Quem enviou, presente ou mensagem"></label>
             <label class="admin-sort"><span>Ordenar por</span><select id="adminGiftSort">
               <option value="recent">Mais recente primeiro</option><option value="oldest">Mais antigo primeiro</option><option value="highest">Maior valor</option><option value="lowest">Menor valor</option><option value="name">Remetente (A–Z)</option>
             </select></label>
-            <label class="admin-sort"><span>Pagamento</span><select id="adminGiftStatus"><option value="all">Todos os status</option><option value="paid">Confirmado</option><option value="pending">Aguardando confirmação</option><option value="cancelled">Cancelados</option><option value="other">Outros status</option></select></label>
+            <label class="admin-sort"><span>Pagamento</span><select id="adminGiftStatus"><option value="all">Todos os status</option><option value="paid">Confirmado</option><option value="pending">Aguardando confirmação</option><option value="physical">Físicos recebidos</option><option value="cancelled">Cancelados</option><option value="other">Outros status</option></select></label>
           </div>
           <p class="admin-status" id="adminGiftsStatus" role="status"></p>
           <p class="admin-list-count" id="adminGiftsCount" aria-live="polite"></p>
@@ -246,7 +263,7 @@
 
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
-    <script src="js/api.js?v=admin-guests-loading-20261021"></script>
-    <script src="js/admin.js?v=admin-guests-loading-20261021"></script>
+    <script src="js/api.js?v=admin-manual-gifts-20261021"></script>
+    <script src="js/admin.js?v=admin-manual-gifts-20261021"></script>
   </body>
 </html>
