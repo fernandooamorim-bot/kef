@@ -464,3 +464,40 @@ test("estatísticas excluem cancelados e filtro mantém histórico", () => {
   assert.match(admin.giftList.innerHTML, /Duplicado/);
   assert.doesNotMatch(admin.giftList.innerHTML, /data-confirm-gift|data-cancel-gift/);
 });
+
+test("resposta perdida é reconciliada por leitura sem repetir a gravação", async () => {
+  const context = vm.createContext({ window: {}, console });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/api.js"), "utf8"), context);
+  const api = context.window.WeddingApi;
+  api.delay = async () => {};
+  let writes = 0, reads = 0;
+  const progress = [];
+  api.checkinRequest = async (action, data, options) => {
+    if (action === "admin_gifts") {
+      reads++;
+      return { gifts: [{ orderId: "P1", status: reads === 1 ? "pending" : "pago", paidAt: reads === 1 ? "" : "2026-10-21" }] };
+    }
+    writes++;
+    assert.equal(options.timeoutMs, 35000);
+    throw Object.assign(new Error("timeout"), { kind: "timeout" });
+  };
+  const result = await api.confirmAdminGift({ orderId: "P1" }, message => progress.push(message));
+  assert.equal(result.reconciled, true);
+  assert.equal(writes, 1);
+  assert.equal(reads, 2);
+  assert.match(progress[0], /Verificando/);
+});
+
+test("reconciliação distingue cancelamento salvo, resultado incerto e erro de negócio", async () => {
+  const context = vm.createContext({ window: {}, console });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/api.js"), "utf8"), context);
+  const api = context.window.WeddingApi;
+  api.delay = async () => {};
+  api.checkinRequest = async () => { throw Object.assign(new Error("rede"), { kind: "network" }); };
+  api.getAdminGifts = async () => ({ gifts: [{ orderId: "P1", status: "cancelado" }] });
+  assert.equal((await api.cancelAdminGift({ orderId: "P1" })).reconciled, true);
+  await assert.rejects(api.confirmAdminGift({ orderId: "P1" }), error => error.kind === "unverified");
+  api.checkinRequest = async () => { throw Object.assign(new Error("Sessão inválida"), { kind: "business" }); };
+  api.getAdminGifts = async () => { throw Error("Não deveria consultar"); };
+  await assert.rejects(api.confirmAdminGift({ orderId: "P1" }), /Sessão inválida/);
+});

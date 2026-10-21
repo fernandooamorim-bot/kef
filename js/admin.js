@@ -308,10 +308,16 @@ window.WeddingAdmin = {
     const cancel = this.selectedGiftAction === "cancel";
     this.setGiftSaving(true);
     this.giftConfirmStatus.textContent = "";
+    const progress = (message) => {
+      if (this.credentials === credentials) {
+        this.giftSavingTitle.textContent = message;
+        this.giftSavingDescription.textContent = "Conferindo o registro no servidor. Não é necessário clicar novamente.";
+      }
+    };
     try {
       const result = cancel
-        ? await window.WeddingApi.cancelAdminGift({ ...credentials, orderId })
-        : await window.WeddingApi.confirmAdminGift({ ...credentials, orderId });
+        ? await window.WeddingApi.cancelAdminGift({ ...credentials, orderId }, progress)
+        : await window.WeddingApi.confirmAdminGift({ ...credentials, orderId }, progress);
       if (this.credentials !== credentials) return;
       if (result?.orderId !== orderId || result.status !== (cancel ? "cancelado" : "pago") || (!cancel && !result.paidAt)) throw new Error("O servidor não confirmou a gravação.");
       // Invalidate an older refresh so it cannot overwrite the saved payment.
@@ -330,7 +336,7 @@ window.WeddingAdmin = {
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
         return;
       }
-      this.giftConfirmStatus.textContent = `${error.message || "Não foi possível confirmar."} Se a conexão caiu, o registro pode ter sido salvo. Você pode tentar novamente com segurança; a operação não será duplicada.`;
+      this.giftConfirmStatus.textContent = error.message || "Não foi possível concluir a operação. Tente novamente.";
     } finally {
       this.setGiftSaving(false);
     }

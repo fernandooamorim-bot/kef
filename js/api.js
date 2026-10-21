@@ -266,7 +266,7 @@ window.WeddingApi = {
       .toLowerCase();
   },
 
-  async checkinRequest(action, data) {
+  async checkinRequest(action, data, options = {}) {
     const config = window.WEDDING_CONFIG;
     if (!config.appScriptUrl) {
       throw new Error("Configure o Apps Script para usar o check-in.");
@@ -275,10 +275,13 @@ window.WeddingApi = {
     const { response, payload } = await this.requestJson(config.appScriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, data })
-    }, "Não foi possível conectar ao sistema de check-in agora. Verifique sua internet e tente novamente.");
+      body: JSON.stringify({ action, data }),
+      timeoutMs: options.timeoutMs || 14000
+    }, options.message || "Não foi possível conectar ao sistema de check-in agora. Verifique sua internet e tente novamente.");
     if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || "Não foi possível concluir a operação.");
+      const error = new Error(payload.error || "Não foi possível concluir a operação.");
+      error.kind = response.status >= 500 || response.status === 429 || payload.errorCode === "SERVER_ERROR" ? "server" : "business";
+      throw error;
     }
     return payload.data;
   },
@@ -309,16 +312,53 @@ window.WeddingApi = {
     });
   },
 
-  async cancelAdminGift(data) {
-    return this.checkinRequest("admin_cancel_gift", data);
+  async cancelAdminGift(data, onProgress) {
+    return this.updateAdminGift("admin_cancel_gift", data, onProgress);
   },
 
-  async confirmAdminGift(data) {
-    return this.checkinRequest("admin_confirm_gift", data);
+  async confirmAdminGift(data, onProgress) {
+    return this.updateAdminGift("admin_confirm_gift", data, onProgress);
+  },
+
+  async updateAdminGift(action, data, onProgress = () => {}) {
+    const cancelled = action === "admin_cancel_gift";
+    const matches = (gift) => gift?.orderId === data.orderId && (cancelled
+      ? ["cancelado", "cancelled"].includes(gift.status)
+      : ["pago", "paid", "approved", "aprovado", "confirmed", "confirmado"].includes(gift.status) && Boolean(gift.paidAt));
+    try {
+      const result = await this.checkinRequest(action, data, {
+        timeoutMs: 35000,
+        message: "A resposta da gravação demorou ou a conexão foi interrompida."
+      });
+      if (matches(result)) return result;
+      const error = new Error("Resposta de gravação incompleta.");
+      error.kind = "invalid_response";
+      throw error;
+    } catch (error) {
+      // A failed response does not mean the write failed. Read back before offering a retry.
+      if (!["timeout", "network", "invalid_response", "server"].includes(error.kind)) throw error;
+      onProgress("Verificando se a alteração foi salva...");
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await this.delay(attempt ? 1800 : 800);
+        try {
+          const result = await this.getAdminGifts(data);
+          const gift = result?.gifts?.find((item) => item.orderId === data.orderId);
+          if (matches(gift)) return { ...gift, status: cancelled ? "cancelado" : "pago", reconciled: true };
+        } catch (readError) {
+          if (readError.kind === "business") throw readError;
+        }
+      }
+      const uncertain = new Error("Não foi possível verificar o resultado agora. A alteração pode ter sido salva. Atualize os presentes ou tente novamente; o pedido não será duplicado.");
+      uncertain.kind = "unverified";
+      throw uncertain;
+    }
   },
 
   async getAdminGifts(credentials) {
-    return this.checkinRequest("admin_gifts", credentials);
+    return this.checkinRequest("admin_gifts", credentials, {
+      timeoutMs: 25000,
+      message: "Não foi possível consultar os presentes agora."
+    });
   },
 
   async respondAdminGuest(data) {
