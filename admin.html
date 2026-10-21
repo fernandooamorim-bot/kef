@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#4e5a42">
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/admin.css?v=admin-labels-20261011">
+    <link rel="stylesheet" href="css/admin.css?v=admin-gifts-cancel-20261021">
   </head>
   <body class="admin-page">
     <main class="admin-shell">
@@ -39,6 +39,11 @@
           <button type="button" id="adminLogoutButton">Sair</button>
         </header>
 
+        <nav class="admin-navigation" aria-label="Áreas administrativas">
+          <button type="button" data-admin-view="guests" aria-controls="adminGuestsView" aria-pressed="true">Convidados</button>
+          <button type="button" data-admin-view="gifts" aria-controls="adminGiftsView" aria-pressed="false">Presentes</button>
+        </nav>
+        <div id="adminGuestsView" class="admin-view">
         <section class="admin-summary" id="adminSummary"></section>
         <p class="admin-capacity-note">Pessoas convidadas incluem titulares e acompanhantes permitidos. Aguardando resposta soma as vagas dos convites pendentes; lugares liberados incluem recusas, cancelamentos e acompanhantes não confirmados.</p>
         <p class="admin-action-feedback" id="adminActionFeedback" role="status" hidden></p>
@@ -173,7 +178,43 @@
             <p class="admin-status" id="adminCreateStatus" role="status"></p>
           </form>
         </section>
+        </div>
+        <section id="adminGiftsView" class="admin-panel" hidden aria-labelledby="adminGiftsTitle">
+          <div class="admin-panel__header">
+            <div><p>Carinho em cada gesto</p><h2 id="adminGiftsTitle">Presentes recebidos</h2></div>
+            <button class="admin-button admin-button--small" type="button" id="refreshGiftsButton">Atualizar presentes</button>
+          </div>
+          <p class="admin-gifts-note">Acompanhe os presentes e as mensagens. Confira o pagamento na sua conta e use “Confirmar recebimento”. Apenas pagamentos confirmados entram no total recebido. O total ativo soma recebidos e pendentes; cancelados ficam fora. Os indicadores consideram todos os registros, independentemente dos filtros.</p>
+          <div class="admin-summary admin-gifts-summary" id="adminGiftsSummary"></div>
+          <div class="admin-gifts-controls">
+            <label class="admin-search"><span>Buscar presente</span><input id="adminGiftSearch" type="search" placeholder="Quem enviou, presente ou mensagem"></label>
+            <label class="admin-sort"><span>Ordenar por</span><select id="adminGiftSort">
+              <option value="recent">Mais recente primeiro</option><option value="oldest">Mais antigo primeiro</option><option value="highest">Maior valor</option><option value="lowest">Menor valor</option><option value="name">Remetente (A–Z)</option>
+            </select></label>
+            <label class="admin-sort"><span>Pagamento</span><select id="adminGiftStatus"><option value="all">Todos os status</option><option value="paid">Confirmado</option><option value="pending">Aguardando confirmação</option><option value="cancelled">Cancelados</option><option value="other">Outros status</option></select></label>
+          </div>
+          <p class="admin-status" id="adminGiftsStatus" role="status"></p>
+          <p class="admin-list-count" id="adminGiftsCount" aria-live="polite"></p>
+          <div class="admin-list" id="adminGiftList"></div>
+        </section>
       </section>
+      <dialog class="admin-response-dialog" id="adminGiftDialog" aria-labelledby="adminGiftDialogTitle" aria-describedby="adminGiftDialogDescription">
+        <form id="adminGiftConfirmForm">
+          <p class="admin-response-dialog__eyebrow">Confirmação manual</p>
+          <h2 id="adminGiftDialogTitle">Confirmar recebimento</h2>
+          <p id="adminGiftConfirmDetails"></p>
+          <p id="adminGiftDialogDescription">Confirme somente após conferir que o valor chegou à sua conta. O presente será marcado como pago e a data desta confirmação será registrada.</p>
+          <div id="adminGiftSaving" class="admin-import__progress" role="status" hidden>
+            <span class="admin-import__spinner" aria-hidden="true"></span>
+            <div><strong>Confirmando recebimento...</strong><p>Salvando o pagamento. Aguarde um instante.</p></div>
+          </div>
+          <p class="admin-status" id="adminGiftConfirmStatus" role="status"></p>
+          <div class="admin-response-dialog__actions">
+            <button class="admin-button admin-button--ghost" id="adminGiftConfirmCancel" type="button">Voltar</button>
+            <button class="admin-button" id="adminGiftConfirmSubmit" type="submit">Sim, recebi o valor</button>
+          </div>
+        </form>
+      </dialog>
       <dialog class="admin-response-dialog" id="adminResponseDialog" aria-labelledby="adminResponseTitle">
         <form id="adminResponseForm">
           <p class="admin-response-dialog__eyebrow" id="adminResponseMode"></p>
@@ -200,7 +241,7 @@
 
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
-    <script src="js/api.js?v=admin-capacity-20261011"></script>
-    <script src="js/admin.js?v=admin-labels-20261011"></script>
+    <script src="js/api.js?v=admin-gifts-cancel-20261021"></script>
+    <script src="js/admin.js?v=admin-gifts-cancel-20261021"></script>
   </body>
 </html>

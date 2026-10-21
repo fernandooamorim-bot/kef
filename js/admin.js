@@ -1,6 +1,9 @@
 window.WeddingAdmin = {
   credentials: null,
   guests: [],
+  gifts: [],
+  giftsLoaded: false,
+  giftsRequest: 0,
   filter: "all",
   sortMode: "recent",
   importRows: [],
@@ -52,6 +55,44 @@ window.WeddingAdmin = {
     this.importFeedbackMessage = document.getElementById("adminImportFeedbackMessage");
     this.importFeedbackClose = document.getElementById("adminImportFeedbackClose");
 
+    this.giftDialog = document.getElementById("adminGiftDialog");
+    this.giftConfirmForm = document.getElementById("adminGiftConfirmForm");
+    this.giftDialogTitle = document.getElementById("adminGiftDialogTitle");
+    this.giftDialogDescription = document.getElementById("adminGiftDialogDescription");
+    this.giftSavingTitle = document.querySelector("#adminGiftSaving strong");
+    this.giftSavingDescription = document.querySelector("#adminGiftSaving p");
+    this.giftConfirmDetails = document.getElementById("adminGiftConfirmDetails");
+    this.giftConfirmStatus = document.getElementById("adminGiftConfirmStatus");
+    this.giftConfirmSubmit = document.getElementById("adminGiftConfirmSubmit");
+    this.giftConfirmCancel = document.getElementById("adminGiftConfirmCancel");
+    this.giftSaving = document.getElementById("adminGiftSaving");
+    this.giftConfirmForm.addEventListener("submit", (event) => this.confirmGift(event));
+    this.giftConfirmCancel.addEventListener("click", () => this.giftDialog.close());
+    this.giftDialog.addEventListener("cancel", (event) => { if (this.giftConfirmBusy) event.preventDefault(); });
+    this.giftDialog.addEventListener("close", () => { this.selectedGiftId = null; });
+    this.giftsView = document.getElementById("adminGiftsView");
+    this.guestsView = document.getElementById("adminGuestsView");
+    this.giftList = document.getElementById("adminGiftList");
+    this.giftList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-confirm-gift]");
+      if (button) this.openGiftConfirmation(button.dataset.confirmGift);
+      const cancel = event.target.closest("[data-cancel-gift]");
+      if (cancel) this.openGiftConfirmation(cancel.dataset.cancelGift, "cancel");
+    });
+    this.giftSearch = document.getElementById("adminGiftSearch");
+    this.giftSort = document.getElementById("adminGiftSort");
+    this.giftStatusFilter = document.getElementById("adminGiftStatus");
+    this.giftsStatus = document.getElementById("adminGiftsStatus");
+    this.giftsSummary = document.getElementById("adminGiftsSummary");
+    this.giftsCount = document.getElementById("adminGiftsCount");
+    this.refreshGiftsButton = document.getElementById("refreshGiftsButton");
+    document.querySelectorAll("[data-admin-view]").forEach((button) => {
+      button.addEventListener("click", () => this.selectView(button.dataset.adminView));
+    });
+    this.refreshGiftsButton.addEventListener("click", () => this.loadGifts());
+    this.giftSearch.addEventListener("input", () => this.renderGifts());
+    this.giftSort.addEventListener("change", () => this.renderGifts());
+    this.giftStatusFilter.addEventListener("change", () => this.renderGifts());
     this.bindEvents();
     this.restoreSession();
   },
@@ -124,10 +165,25 @@ window.WeddingAdmin = {
   },
 
   logout() {
+    if (this.giftDialog?.open) this.giftDialog.close();
+    this.confirmGiftAvailable = false;
+    this.cancelGiftAvailable = false;
     if (this.responseDialog.open) this.responseDialog.close();
     this.clearSession();
     this.credentials = null;
     this.guests = [];
+    this.gifts = [];
+    this.giftsLoaded = false;
+    this.giftsRequest += 1;
+    this.giftsLoading = false;
+    this.refreshGiftsButton.disabled = false;
+    this.giftList.innerHTML = "";
+    this.giftsSummary.innerHTML = "";
+    this.giftsCount.textContent = "";
+    this.giftsStatus.textContent = "";
+    this.giftSearch.value = "";
+    this.giftSort.value = "recent";
+    this.giftStatusFilter.value = "all";
     this.toggleImportPanel(false);
     this.app.hidden = true;
     this.loginPanel.hidden = false;
@@ -165,9 +221,188 @@ window.WeddingAdmin = {
   },
 
   showApp(name) {
+    this.selectView("guests");
     this.operatorName.textContent = name || "Equipe";
     this.loginPanel.hidden = true;
     this.app.hidden = false;
+  },
+
+  selectView(view) {
+    const gifts = view === "gifts";
+    this.guestsView.hidden = gifts;
+    this.giftsView.hidden = !gifts;
+    document.querySelectorAll("[data-admin-view]").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.adminView === view));
+    });
+    if (gifts && !this.giftsLoaded) this.loadGifts();
+  },
+
+  async loadGifts() {
+    if (!this.credentials || this.giftsLoading) return;
+    const request = ++this.giftsRequest;
+    this.giftsLoading = true;
+    this.refreshGiftsButton.disabled = true;
+    this.giftsView.setAttribute("aria-busy", "true");
+    this.giftsStatus.textContent = "Carregando presentes...";
+    try {
+      const result = await window.WeddingApi.getAdminGifts(this.credentials);
+      if (request !== this.giftsRequest) return;
+      if (!Array.isArray(result?.gifts)) throw new Error("Atualize a implantação do Apps Script para consultar os presentes.");
+      this.confirmGiftAvailable = result.capabilities?.confirmGift === true;
+      this.cancelGiftAvailable = result.capabilities?.cancelGift === true;
+      this.gifts = result.gifts;
+      this.giftsLoaded = true;
+      this.renderGifts();
+      this.giftsStatus.textContent = this.confirmGiftAvailable ? "" : "Atualize a implantação do Apps Script para confirmar recebimentos por este painel.";
+    } catch (error) {
+      if (request !== this.giftsRequest) return;
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
+        return;
+      }
+      this.giftsStatus.textContent = `${error.message || "Não foi possível carregar os presentes."} ${this.giftsLoaded ? "Exibindo a última consulta. " : ""}Tente atualizar. Se o painel ainda não estiver disponível, atualize a implantação do Apps Script.`;
+    } finally {
+      if (request === this.giftsRequest) {
+        this.giftsLoading = false;
+        this.refreshGiftsButton.disabled = false;
+        this.giftsView.setAttribute("aria-busy", "false");
+      }
+    }
+  },
+
+  openGiftConfirmation(orderId, action = "confirm") {
+    if (this.giftConfirmBusy || !(action === "cancel" ? this.cancelGiftAvailable : this.confirmGiftAvailable)) return;
+    const gift = this.gifts.find((item) => item.orderId === orderId);
+    if (!gift || !orderId || this.giftPaymentState(gift) !== "pending") return;
+    this.selectedGiftAction = action;
+    this.selectedGiftId = orderId;
+    const cancel = action === "cancel";
+    this.giftDialogTitle.textContent = cancel ? "Cancelar pedido duplicado" : "Confirmar recebimento";
+    this.giftDialogDescription.textContent = cancel
+      ? "Cancele apenas o pedido pendente duplicado. O registro continuará no histórico, fora dos totais ativos. Esta ação não cancela cobranças nem realiza estornos no banco ou no PagBank."
+      : "Confirme somente após conferir que o valor chegou à sua conta. O presente será marcado como pago e a data desta confirmação será registrada.";
+    this.giftSavingTitle.textContent = cancel ? "Cancelando pedido..." : "Confirmando recebimento...";
+    this.giftSavingDescription.textContent = "Salvando a alteração. Aguarde um instante.";
+    this.setGiftSaving(false);
+    const amount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(this.giftAmount(gift));
+    this.giftConfirmDetails.textContent = `${gift.name || "Remetente não informado"} · ${gift.title || "Presente"} · ${amount}`;
+    this.giftConfirmStatus.textContent = "";
+    this.giftDialog.showModal();
+  },
+
+  setGiftSaving(active) {
+    this.giftConfirmBusy = active;
+    this.giftSaving.hidden = !active;
+    this.giftConfirmSubmit.disabled = active;
+    this.giftConfirmCancel.disabled = active;
+    this.giftConfirmSubmit.textContent = active ? "Salvando..." : this.selectedGiftAction === "cancel" ? "Sim, cancelar pedido" : "Sim, recebi o valor";
+    this.giftConfirmForm.setAttribute("aria-busy", String(active));
+  },
+
+  async confirmGift(event) {
+    event.preventDefault();
+    if (this.giftConfirmBusy || !this.selectedGiftId || !this.credentials) return;
+    const orderId = this.selectedGiftId;
+    const credentials = this.credentials;
+    const cancel = this.selectedGiftAction === "cancel";
+    this.setGiftSaving(true);
+    this.giftConfirmStatus.textContent = "";
+    try {
+      const result = cancel
+        ? await window.WeddingApi.cancelAdminGift({ ...credentials, orderId })
+        : await window.WeddingApi.confirmAdminGift({ ...credentials, orderId });
+      if (this.credentials !== credentials) return;
+      if (result?.orderId !== orderId || result.status !== (cancel ? "cancelado" : "pago") || (!cancel && !result.paidAt)) throw new Error("O servidor não confirmou a gravação.");
+      // Invalidate an older refresh so it cannot overwrite the saved payment.
+      this.giftsRequest += 1;
+      this.giftsLoading = false;
+      this.refreshGiftsButton.disabled = false;
+      this.giftsView.setAttribute("aria-busy", "false");
+      this.gifts = this.gifts.map((gift) => gift.orderId === orderId ? { ...gift, status: result.status, paidAt: result.paidAt || gift.paidAt } : gift);
+      this.renderGifts();
+      this.giftDialog.close();
+      this.giftsStatus.textContent = cancel ? "Pedido cancelado. O registro foi mantido no histórico e retirado dos totais ativos." : result.alreadyConfirmed ? "Este recebimento já estava confirmado. O painel foi atualizado." : "Recebimento confirmado! O status e o total recebido foram atualizados.";
+    } catch (error) {
+      if (this.credentials !== credentials) return;
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
+        return;
+      }
+      this.giftConfirmStatus.textContent = `${error.message || "Não foi possível confirmar."} Se a conexão caiu, o registro pode ter sido salvo. Você pode tentar novamente com segurança; a operação não será duplicada.`;
+    } finally {
+      this.setGiftSaving(false);
+    }
+  },
+
+  giftPaymentState(gift) {
+    const status = this.normalize(gift.status).trim();
+    if (["cancelled", "cancelado"].includes(status)) return "cancelled";
+    if (["refunded", "reembolsado", "estornado", "rejected", "recusado"].includes(status)) return "other";
+    if (gift.paidAt || ["paid", "pago", "approved", "aprovado", "confirmed", "confirmado"].includes(status)) return "paid";
+    if (!status || ["created", "pending", "aguardando_pagamento", "pendente"].includes(status)) return "pending";
+    return "other";
+  },
+
+  giftAmount(gift) {
+    const value = Number(gift.amount);
+    return Number.isFinite(value) ? value : 0;
+  },
+
+  giftDate(gift) {
+    const value = new Date(gift.createdAt).getTime();
+    return Number.isFinite(value) ? value : null;
+  },
+
+  sortGifts(gifts) {
+    const mode = this.giftSort.value;
+    return gifts.sort((a, b) => {
+      if (mode === "name") return String(a.name || "").localeCompare(String(b.name || ""), "pt-BR", { sensitivity: "base" });
+      if (mode === "highest" || mode === "lowest") return (this.giftAmount(a) - this.giftAmount(b)) * (mode === "highest" ? -1 : 1);
+      const first = this.giftDate(a), second = this.giftDate(b);
+      if (first === null) return second === null ? 0 : 1;
+      if (second === null) return -1;
+      return (first - second) * (mode === "oldest" ? 1 : -1);
+    });
+  },
+
+  renderGifts() {
+    if (!this.giftsLoaded) return;
+    const money = (value) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+    const paid = this.gifts.filter((gift) => this.giftPaymentState(gift) === "paid");
+    const pending = this.gifts.filter((gift) => this.giftPaymentState(gift) === "pending");
+    const paidTotal = paid.reduce((sum, gift) => sum + this.giftAmount(gift), 0);
+    const pendingTotal = pending.reduce((sum, gift) => sum + this.giftAmount(gift), 0);
+    const cancelled = this.gifts.filter((gift) => this.giftPaymentState(gift) === "cancelled");
+    this.giftsSummary.innerHTML = [
+      ["Presentes registrados", this.gifts.length],
+      ["Valor recebido", money(paidTotal)],
+      ["Valor pendente", money(pendingTotal)],
+      ["Total ativo · recebido + pendente", money(paidTotal + pendingTotal)],
+      ["Pedidos pendentes", pending.length],
+      ["Pedidos cancelados", cancelled.length]
+    ].map(([label, value]) => `<div><span>${this.escape(label)}</span><strong>${this.escape(value)}</strong></div>`).join("");
+    const term = this.normalize(this.giftSearch.value);
+    const gifts = this.sortGifts(this.gifts.filter((gift) => {
+      return (this.giftStatusFilter.value === "all" || this.giftPaymentState(gift) === this.giftStatusFilter.value)
+        && this.normalize(`${gift.name || ""} ${gift.title || ""} ${gift.message || ""}`).includes(term);
+    }));
+    this.giftsCount.textContent = `${gifts.length} de ${this.gifts.length} presentes`;
+    this.giftList.innerHTML = gifts.length ? gifts.map((gift) => {
+      const state = this.giftPaymentState(gift);
+      const label = state === "paid" ? "Pagamento confirmado" : state === "pending" ? "Aguardando confirmação" : state === "cancelled" ? "Pedido cancelado" : gift.status || "Não informado";
+      const method = gift.paymentMethod === "pix" ? "Pix" : gift.paymentMethod === "card" ? "Cartão · PagBank" : gift.paymentMethod || gift.provider || "Não informada";
+      return `<article class="admin-gift">
+        <div class="admin-gift__heading"><div><span class="admin-gift__status admin-gift__status--${state}">${this.escape(label)}</span><h3>${this.escape(gift.name || "Remetente não informado")}</h3><p>${this.escape(gift.title || "Presente sem descrição")}</p></div><strong class="admin-gift__amount">${this.escape(money(this.giftAmount(gift)))}</strong></div>
+        <dl class="admin-gift__facts"><div><dt>Data do presente</dt><dd>${this.escape(this.formatDate(gift.createdAt) || "Não informada")}</dd></div><div><dt>Forma de pagamento</dt><dd>${this.escape(method)}</dd></div>${gift.paidAt ? `<div><dt>Pagamento confirmado em</dt><dd>${this.escape(this.formatDate(gift.paidAt))}</dd></div>` : ""}</dl>
+        <div class="admin-gift__message"><span>Mensagem enviada</span><p>${this.escape(gift.message || "Nenhuma mensagem enviada.")}</p></div>
+        ${state === "pending" && gift.orderId ? `<div class="admin-guest__actions">
+          ${this.confirmGiftAvailable ? `<button class="admin-button admin-button--small" type="button" data-confirm-gift="${this.escapeAttr(gift.orderId)}">Confirmar recebimento</button>` : ""}
+          ${this.cancelGiftAvailable ? `<button class="admin-button admin-button--small admin-button--cancel" type="button" data-cancel-gift="${this.escapeAttr(gift.orderId)}">Cancelar duplicidade</button>` : ""}
+        </div>` : ""}
+      </article>`;
+    }).join("") : `<p class="admin-gifts-empty">${this.gifts.length ? "Nenhum presente encontrado. Experimente outra busca ou status." : "Ainda não há presentes registrados."}</p>`;
   },
 
   toggleImportPanel(show) {

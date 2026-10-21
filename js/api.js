@@ -309,6 +309,18 @@ window.WeddingApi = {
     });
   },
 
+  async cancelAdminGift(data) {
+    return this.checkinRequest("admin_cancel_gift", data);
+  },
+
+  async confirmAdminGift(data) {
+    return this.checkinRequest("admin_confirm_gift", data);
+  },
+
+  async getAdminGifts(credentials) {
+    return this.checkinRequest("admin_gifts", credentials);
+  },
+
   async respondAdminGuest(data) {
     return this.checkinRequest("admin_respond_guest", {
       ...data,

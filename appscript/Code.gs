@@ -282,6 +282,18 @@ function doPost(e) {
       return handleCancelRsvp_(body.data || {});
     }
 
+    if (action === "admin_cancel_gift") {
+      return handleAdminCancelGift_(body.data || {});
+    }
+
+    if (action === "admin_confirm_gift") {
+      return handleAdminConfirmGift_(body.data || {});
+    }
+
+    if (action === "admin_gifts") {
+      return handleAdminGifts_(body.data || {});
+    }
+
     if (action === "admin_summary") {
       return handleAdminSummary_(body.data || {});
     }
@@ -885,6 +897,85 @@ function handleCheckinSearch_(data) {
     .slice(0, 10);
 
   return jsonResponse(true, { guests: guests });
+}
+
+function handleAdminConfirmGift_(data) {
+  return handleAdminGiftPayment_(data, false);
+}
+
+function handleAdminCancelGift_(data) {
+  return handleAdminGiftPayment_(data, true);
+}
+
+function handleAdminGiftPayment_(data, cancel) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+  const orderId = String(data.orderId || "").trim();
+  if (!orderId) return jsonResponse(false, null, "Selecione um presente válido.");
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return jsonResponse(false, null, "Outro registro está sendo salvo. Tente novamente.");
+  try {
+    const sheet = getSpreadsheet_().getSheetByName(SHEETS.PEDIDOS_PRESENTES);
+    if (!sheet) return jsonResponse(false, null, "Presente não encontrado.");
+    const values = sheet.getDataRange().getValues();
+    const headers = (values.shift() || []).map(function(header) { return canonicalHeaderForSheet_(SHEETS.PEDIDOS_PRESENTES, header); });
+    const idColumn = headers.indexOf("order_id");
+    const statusColumn = headers.indexOf("status");
+    const paidColumn = headers.indexOf("paid_at");
+    if ([idColumn, statusColumn, paidColumn].some(function(column) { return column < 0; })) {
+      return jsonResponse(false, null, "Confira as colunas codigo_pedido, status e pago_em na planilha.");
+    }
+    const matches = values.map(function(row, index) { return { row: row, number: index + 2 }; })
+      .filter(function(item) { return String(item.row[idColumn] || "").trim() === orderId; });
+    if (matches.length !== 1) return jsonResponse(false, null, "Pedido não encontrado ou com código duplicado. Confira a planilha.");
+    const item = matches[0];
+    const status = normalizeText_(item.row[statusColumn] || "");
+    const paidStatuses = ["paid", "pago", "approved", "aprovado", "confirmed", "confirmado"];
+    const pendingStatuses = ["", "created", "pending", "aguardando_pagamento", "pendente"];
+    if (cancel) {
+      if (["cancelado", "cancelled"].indexOf(status) >= 0) {
+        return jsonResponse(true, { orderId: orderId, status: "cancelado", alreadyCancelled: true });
+      }
+      if (pendingStatuses.indexOf(status) < 0 || item.row[paidColumn]) {
+        return jsonResponse(false, null, "Só é possível cancelar pedidos pendentes. Este pedido pode ter sido confirmado por outra pessoa; atualize o painel.");
+      }
+      setRecordValue_(sheet, item.number, headers, "status", "cancelado");
+      SpreadsheetApp.flush();
+      return jsonResponse(true, { orderId: orderId, status: "cancelado", alreadyCancelled: false });
+    }
+    if (paidStatuses.indexOf(status) < 0 && pendingStatuses.indexOf(status) < 0) {
+      return jsonResponse(false, null, "Este pedido não está aguardando pagamento. Confira o status na planilha.");
+    }
+    const alreadyConfirmed = paidStatuses.indexOf(status) >= 0 || Boolean(item.row[paidColumn]);
+    // Preserve the first confirmation timestamp when a response is lost and retried.
+    const paidAt = item.row[paidColumn] || new Date();
+    setRecordValue_(sheet, item.number, headers, "paid_at", paidAt);
+    setRecordValue_(sheet, item.number, headers, "status", "pago");
+    SpreadsheetApp.flush();
+    return jsonResponse(true, { orderId: orderId, status: "pago", paidAt: paidAt, alreadyConfirmed: alreadyConfirmed });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleAdminGifts_(data) {
+  const operator = validateOperator_(data);
+  if (!operator.ok) return jsonResponse(false, null, operator.error);
+  const gifts = readTableSheet_(SHEETS.PEDIDOS_PRESENTES).map(function(row) {
+    return {
+      orderId: row.order_id || "",
+      title: row.gift_title || "",
+      name: row.giver_name || row.name || "",
+      message: row.message || "",
+      amount: Number(row.amount) || 0,
+      createdAt: row.created_at || "",
+      paidAt: row.paid_at || "",
+      status: row.status || "",
+      paymentMethod: row.payment_method || (row.provider === "pix" ? "pix" : row.provider === "pagbank" ? "card" : ""),
+      provider: row.provider || ""
+    };
+  });
+  return jsonResponse(true, { gifts: gifts, capabilities: { confirmGift: true, cancelGift: true } });
 }
 
 function handleAdminSummary_(data) {

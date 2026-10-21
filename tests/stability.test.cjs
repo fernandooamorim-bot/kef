@@ -331,3 +331,136 @@ test("service worker reconhece caminho /kef/ e versão na URL", async () => {
   handlers.fetch({ request: { method: "GET", url: "https://example.test/kef/js/checkin.js?v=1" }, respondWith: (promise) => { handled = true; return promise; } });
   assert.equal(handled, true);
 });
+
+test("presentes exigem autenticação e retornam apenas os campos do painel", () => {
+  const { context } = backend();
+  context.validateOperator_ = () => ({ ok: false, error: "Sessão inválida" });
+  context.readTableSheet_ = () => { throw new Error("Não deve ler antes de autenticar"); };
+  assert.equal(context.handleAdminGifts_({}).ok, false);
+  context.validateOperator_ = () => ({ ok: true });
+  context.readTableSheet_ = () => [{ name: "Ana", gift_title: "Viagem", amount: 200, message: "Felicidades!", provider: "pagbank", status: "aguardando_pagamento", email: "privado@example.test" }];
+  const result = context.handleAdminGifts_({});
+  assert.equal(result.data.gifts[0].name, "Ana");
+  assert.equal(result.data.gifts[0].paymentMethod, "card");
+  assert.equal(result.data.gifts[0].email, undefined);
+});
+
+test("presentes ordenam datas e valores e não confundem intenção com recebimento", () => {
+  const context = vm.createContext({ window: {}, document: { addEventListener() {} }, Intl });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/admin.js"), "utf8"), context);
+  const admin = context.window.WeddingAdmin;
+  admin.giftSort = { value: "recent" };
+  const gifts = [{ name: "Antigo", createdAt: "2026-01-01", amount: 90 }, { name: "Sem data", createdAt: "", amount: 10 }, { name: "Novo", createdAt: "2026-10-20", amount: 200 }];
+  assert.equal(admin.sortGifts([...gifts])[0].name, "Novo");
+  admin.giftSort.value = "oldest";
+  assert.equal(admin.sortGifts([...gifts])[0].name, "Antigo");
+  assert.equal(admin.sortGifts([...gifts])[2].name, "Sem data");
+  admin.giftSort.value = "lowest";
+  assert.equal(admin.sortGifts([...gifts])[0].amount, 10);
+  assert.equal(admin.giftPaymentState({ status: "aguardando_pagamento" }), "pending");
+  assert.equal(admin.giftPaymentState({ status: "pago" }), "paid");
+  assert.equal(admin.giftPaymentState({ status: "reembolsado", paidAt: "2026-10-20" }), "other");
+});
+
+test("confirmação de presente autentica, preserva data e rejeita pedidos cancelados", () => {
+  const { context, events } = backend();
+  const values = [["codigo_pedido", "status", "pago_em"], ["P001", "aguardando_pagamento", ""]];
+  context.validateOperator_ = () => ({ ok: false, error: "Sessão inválida" });
+  assert.equal(context.handleAdminConfirmGift_({ orderId: "P001" }).ok, false);
+  context.validateOperator_ = () => ({ ok: true });
+  const sheet = {
+    getDataRange: () => ({ getValues: () => values.map(row => [...row]) }),
+    getRange: (row, column) => ({ setValue: value => { values[row - 1][column - 1] = value; } })
+  };
+  context.getSpreadsheet_ = () => ({ getSheetByName: () => sheet });
+  const first = context.handleAdminConfirmGift_({ orderId: "P001" });
+  assert.equal(first.ok, true);
+  assert.equal(first.data.alreadyConfirmed, false);
+  assert.equal(values[1][1], "pago");
+  const timestamp = values[1][2];
+  const second = context.handleAdminConfirmGift_({ orderId: "P001" });
+  assert.equal(second.data.alreadyConfirmed, true);
+  assert.equal(values[1][2], timestamp);
+  values[1][1] = "cancelado";
+  assert.equal(context.handleAdminConfirmGift_({ orderId: "P001" }).ok, false);
+  assert.equal(values[1][1], "cancelado");
+  assert.equal(context.handleAdminConfirmGift_({ orderId: "missing" }).ok, false);
+  values.push([...values[1]]);
+  assert.equal(context.handleAdminConfirmGift_({ orderId: "P001" }).ok, false);
+  assert.ok(events.includes("flush"));
+  assert.equal(events.filter(event => event === "unlock").length, 5);
+});
+
+test("confirmação mostra loading, impede duplo envio e só atualiza após salvar", async () => {
+  let resolveRequest, calls = 0;
+  const context = vm.createContext({ window: { WeddingApi: { confirmAdminGift: () => { calls++; return new Promise(resolve => { resolveRequest = resolve; }); } } }, document: { addEventListener() {} }, Intl });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/admin.js"), "utf8"), context);
+  const admin = context.window.WeddingAdmin;
+  const element = () => ({ hidden: true, disabled: false, textContent: "", setAttribute() {} });
+  for (const key of ["giftSaving", "giftConfirmSubmit", "giftConfirmCancel", "giftConfirmForm", "giftConfirmStatus", "refreshGiftsButton", "giftsView", "giftsStatus"]) admin[key] = element();
+  admin.giftDialog = { close() {} };
+  admin.renderGifts = () => {};
+  admin.credentials = { sessionToken: "test" };
+  admin.selectedGiftId = "P001";
+  admin.gifts = [{ orderId: "P001", status: "pending" }];
+  const event = { preventDefault() {} };
+  const request = admin.confirmGift(event);
+  assert.equal(admin.giftSaving.hidden, false);
+  assert.equal(admin.giftConfirmSubmit.disabled, true);
+  assert.equal(admin.gifts[0].status, "pending");
+  await admin.confirmGift(event);
+  assert.equal(calls, 1);
+  resolveRequest({ orderId: "P001", status: "pago", paidAt: "2026-10-21T12:00:00Z" });
+  await request;
+  assert.equal(admin.gifts[0].status, "pago");
+  assert.equal(admin.giftSaving.hidden, true);
+  assert.equal(admin.giftConfirmSubmit.disabled, false);
+  context.window.WeddingApi.confirmAdminGift = async () => { throw Error("Sem conexão"); };
+  await admin.confirmGift(event);
+  assert.match(admin.giftConfirmStatus.textContent, /Sem conexão/);
+  assert.equal(admin.giftConfirmBusy, false);
+});
+
+test("cancelamento de duplicidade preserva registro, permite repetição e protege pagamentos", () => {
+  const { context } = backend();
+  const values = [["codigo_pedido", "status", "pago_em"], ["P001", "aguardando_pagamento", ""]];
+  context.validateOperator_ = () => ({ ok: false, error: "Sessão inválida" });
+  assert.equal(context.handleAdminCancelGift_({ orderId: "P001" }).ok, false);
+  context.validateOperator_ = () => ({ ok: true });
+  context.getSpreadsheet_ = () => ({ getSheetByName: () => ({
+    getDataRange: () => ({ getValues: () => values.map(row => [...row]) }),
+    getRange: (row, column) => ({ setValue: value => { values[row - 1][column - 1] = value; } })
+  }) });
+  assert.equal(context.handleAdminCancelGift_({ orderId: "P001" }).ok, true);
+  assert.equal(values[1][1], "cancelado");
+  assert.equal(values.length, 2);
+  assert.equal(context.handleAdminCancelGift_({ orderId: "P001" }).data.alreadyCancelled, true);
+  assert.equal(context.handleAdminConfirmGift_({ orderId: "P001" }).ok, false);
+  values[1][1] = "pago";
+  assert.equal(context.handleAdminCancelGift_({ orderId: "P001" }).ok, false);
+  values[1][1] = "pendente";
+  values[1][2] = "2026-10-21";
+  assert.equal(context.handleAdminCancelGift_({ orderId: "P001" }).ok, false);
+});
+
+test("estatísticas excluem cancelados e filtro mantém histórico", () => {
+  const context = vm.createContext({ window: {}, document: { addEventListener() {} }, Intl });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/admin.js"), "utf8"), context);
+  const admin = context.window.WeddingAdmin;
+  admin.giftsLoaded = true;
+  admin.gifts = [
+    { name: "Pago", amount: 100, status: "pago" },
+    { name: "Pendente", amount: 50, status: "pendente" },
+    { name: "Duplicado", amount: 900, status: "cancelado" }
+  ];
+  admin.giftsSummary = {}; admin.giftsCount = {}; admin.giftList = {};
+  admin.giftSearch = { value: "" }; admin.giftSort = { value: "recent" };
+  admin.giftStatusFilter = { value: "cancelled" };
+  admin.renderGifts();
+  assert.match(admin.giftsSummary.innerHTML, /100,00/);
+  assert.match(admin.giftsSummary.innerHTML, /50,00/);
+  assert.match(admin.giftsSummary.innerHTML, /150,00/);
+  assert.doesNotMatch(admin.giftsSummary.innerHTML, /900,00/);
+  assert.match(admin.giftList.innerHTML, /Duplicado/);
+  assert.doesNotMatch(admin.giftList.innerHTML, /data-confirm-gift|data-cancel-gift/);
+});
