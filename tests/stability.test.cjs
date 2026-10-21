@@ -553,3 +553,35 @@ test("pagamento já confirmado não regrava células; gravação parcial é conc
   assert.equal(values[1][2], "2026-10-21");
   assert.ok(events.includes("flush"));
 });
+
+test("carregamento de convidados preserva lista, mostra progresso e descarta respostas antigas", async () => {
+  const pending = [];
+  const context = vm.createContext({ window: { WeddingApi: { getAdminSummary: () => new Promise((resolve, reject) => pending.push({ resolve, reject })) } }, document: { addEventListener() {} } });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/admin.js"), "utf8"), context);
+  const admin = context.window.WeddingAdmin;
+  admin.credentials = {};
+  admin.list = { innerHTML: "Lista anterior", setAttribute() {} };
+  admin.refreshButton = {};
+  admin.guestsLoading = {};
+  admin.guestsStatus = {};
+  admin.guestsLoaded = true;
+  admin.actionFeedback = { dataset: {} };
+  admin.renderSummary = admin.renderGroupOptions = admin.renderList = () => {};
+  const first = admin.loadSummary();
+  assert.equal(admin.guestsLoading.hidden, false);
+  assert.equal(admin.refreshButton.disabled, true);
+  assert.equal(admin.list.innerHTML, "Lista anterior");
+  const second = admin.loadSummary();
+  pending[1].resolve({ guests: [{ name: "Atual" }], capabilities: { adminRespondGuest: true } });
+  await second;
+  pending[0].resolve({ guests: [{ name: "Antigo" }] });
+  await first;
+  assert.equal(admin.guests[0].name, "Atual");
+  assert.equal(admin.refreshButton.disabled, false);
+  const third = admin.loadSummary();
+  pending[2].reject(Error("Sem conexão"));
+  assert.equal(await third, false);
+  assert.equal(admin.list.innerHTML, "Lista anterior");
+  assert.match(admin.guestsStatus.textContent, /lista anterior foi mantida/);
+  assert.equal(admin.guestsLoading.hidden, true);
+});

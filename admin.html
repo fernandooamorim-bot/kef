@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#4e5a42">
     <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/base.css?v=rsvp-gate-20260904">
-    <link rel="stylesheet" href="css/admin.css?v=admin-gifts-reconcile-20261021">
+    <link rel="stylesheet" href="css/admin.css?v=admin-guests-loading-20261021">
   </head>
   <body class="admin-page">
     <main class="admin-shell">
@@ -135,6 +135,11 @@
 
           <p class="admin-list-count" id="adminListCount" aria-live="polite"></p>
 
+          <div class="admin-import__progress" id="adminGuestsLoading" role="status" hidden>
+            <span class="admin-import__spinner" aria-hidden="true"></span>
+            <div><strong>Atualizando convidados...</strong><p>Buscando a lista e os totais mais recentes.</p></div>
+          </div>
+          <p class="admin-status" id="adminGuestsStatus" role="status"></p>
           <div class="admin-list" id="adminGuestList"></div>
         </section>
 
@@ -241,7 +246,7 @@
 
     <script src="js/config.js?v=rsvp-gate-20260904"></script>
     <script src="js/cache.js?v=rsvp-gate-20260904"></script>
-    <script src="js/api.js?v=admin-gifts-reconcile-20261021"></script>
-    <script src="js/admin.js?v=admin-gifts-reconcile-20261021"></script>
+    <script src="js/api.js?v=admin-guests-loading-20261021"></script>
+    <script src="js/admin.js?v=admin-guests-loading-20261021"></script>
   </body>
 </html>

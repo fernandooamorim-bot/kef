@@ -1,6 +1,8 @@
 window.WeddingAdmin = {
   credentials: null,
   guests: [],
+  guestsRequest: 0,
+  guestsLoaded: false,
   gifts: [],
   giftsLoaded: false,
   giftsRequest: 0,
@@ -35,6 +37,8 @@ window.WeddingAdmin = {
     this.groupSelect = document.getElementById("adminGroupFilter");
     this.listCount = document.getElementById("adminListCount");
     this.refreshButton = document.getElementById("refreshAdminButton");
+    this.guestsLoading = document.getElementById("adminGuestsLoading");
+    this.guestsStatus = document.getElementById("adminGuestsStatus");
     this.createForm = document.getElementById("adminCreateForm");
     this.createStatus = document.getElementById("adminCreateStatus");
     this.companionNameField = document.getElementById("adminCompanionNameField");
@@ -172,6 +176,13 @@ window.WeddingAdmin = {
     this.clearSession();
     this.credentials = null;
     this.guests = [];
+    this.guestsRequest += 1;
+    this.guestsLoaded = false;
+    this.setGuestsLoading(false);
+    this.list.innerHTML = "";
+    this.summary.innerHTML = "";
+    this.listCount.textContent = "";
+    this.guestsStatus.textContent = "";
     this.gifts = [];
     this.giftsLoaded = false;
     this.giftsRequest += 1;
@@ -423,11 +434,23 @@ window.WeddingAdmin = {
     }
   },
 
+  setGuestsLoading(active) {
+    this.guestsLoading.hidden = !active;
+    this.refreshButton.disabled = active;
+    this.refreshButton.textContent = active ? "Atualizando..." : "Atualizar";
+    this.list.setAttribute("aria-busy", String(active));
+  },
+
   async loadSummary() {
     if (!this.credentials) return false;
-    this.list.innerHTML = '<p class="admin-status">Carregando convidados...</p>';
+    const request = ++this.guestsRequest;
+    this.setGuestsLoading(true);
+    this.guestsStatus.textContent = "";
     try {
       const result = await window.WeddingApi.getAdminSummary(this.credentials);
+      if (request !== this.guestsRequest) return false;
+      if (!Array.isArray(result?.guests)) throw new Error("Resposta de convidados inválida. Tente atualizar novamente.");
+      this.guestsLoaded = true;
       this.guests = result.guests || [];
       this.manualResponseAvailable = result.capabilities?.adminRespondGuest === true;
       this.renderSummary(result.totals || {});
@@ -440,13 +463,16 @@ window.WeddingAdmin = {
         this.actionFeedback.dataset.backendNotice = "false";
       }
     } catch (error) {
+      if (request !== this.guestsRequest) return false;
       if (this.isInvalidSessionError(error)) {
         this.logout();
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
         return false;
       }
-      this.list.innerHTML = `<p class="admin-status">${this.escape(error.message || "Não foi possível carregar.")}</p>`;
+      this.guestsStatus.textContent = `${error.message || "Não foi possível carregar os convidados."}${this.guestsLoaded ? " A lista anterior foi mantida. Toque em Atualizar para tentar novamente." : " Toque em Atualizar para tentar novamente."}`;
       return false;
+    } finally {
+      if (request === this.guestsRequest) this.setGuestsLoading(false);
     }
     return true;
   },
