@@ -263,6 +263,10 @@
     padding: 0.8rem;
   }
 
+  .gifts__physical-note p {
+    text-align: center;
+  }
+
   .gifts__physical-note .button {
     justify-self: center;
   }
