@@ -230,17 +230,42 @@
 }
 
 .gifts__physical-note {
-  max-width: 62ch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  max-width: none;
   margin: 1.25rem auto 0;
-  padding: 0.9rem 1.1rem;
+  padding: 0.7rem 1rem;
   border: 1px solid rgba(78, 90, 66, 0.2);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.58);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .gifts__physical-note p {
-  margin: 0 0 0.85rem;
+  margin: 0;
+  text-align: left;
+}
+
+.gifts__physical-note .button {
+  min-height: 40px;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .gifts__physical-note {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    padding: 0.8rem;
+  }
+
+  .gifts__physical-note .button {
+    justify-self: start;
+  }
 }
 
 .gifts__grid {
