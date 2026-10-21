@@ -229,6 +229,20 @@
   margin-bottom: 2.6rem;
 }
 
+.gifts__physical-note {
+  max-width: 62ch;
+  margin: 1.25rem auto 0;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid rgba(78, 90, 66, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+  font-size: 0.95rem;
+}
+
+.gifts__physical-note p {
+  margin: 0 0 0.85rem;
+}
+
 .gifts__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
