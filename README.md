@@ -144,6 +144,6 @@ ffmpeg -i Design/OBQH1913.mp4 -vf "scale='min(1280,iw)':-2" -c:v libvpx-vp9 -crf
 
 ### Portaria no dia do evento
 
-A lista é baixada automaticamente no login e na reabertura. Antes de começar, confira **Lista pronta** e o horário da sincronização em cada aparelho. Nome e acompanhante aparecem localmente, mas a liberação online depende da confirmação do servidor. O resultado mostra o tempo da validação.
+A lista é baixada automaticamente no login e na reabertura. Antes de começar, confira **Lista pronta** e o horário da sincronização em cada aparelho. Durante a validação, a tela pede para aguardar e não mostra nome nem acompanhante. Esses dados aparecem junto do resultado; a liberação online depende da confirmação do servidor. O resultado mostra o tempo da validação.
 
 Em queda total, concentre a fila em **um único aparelho**, ative explicitamente o modo offline e mantenha a aba aberta. A lista precisa ter sido atualizada nas últimas duas horas. Se uma tentativa online ficou sem resposta, confira esse mesmo QR online antes de liberar; o sistema preserva a operação para recuperá-la. Ao recuperar conexão, confira pendências e eventuais conflitos. Não limpe os dados do navegador enquanto houver entradas pendentes.

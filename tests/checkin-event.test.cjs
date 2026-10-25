@@ -117,3 +117,25 @@ test('reenvio de transporte usa exatamente o mesmo ID e não repete erro de neg�
   await assert.rejects(window.WeddingApi.validateCheckin({ token, requestId: 'fixed' }));
   assert.equal(calls, 3);
 });
+
+test('QR em processamento não mostra nome nem acompanhante antes do resultado', async () => {
+  let resolve;
+  const c = client({ validateCheckin: () => new Promise(r => resolve = r) });
+  const pending = c.validateToken(token);
+  assert.equal(c.lastResult[0], 'reading');
+  assert.match(c.lastResult[1], /aguarde a validação/);
+  assert.equal(c.lastResult[2], 'Aguarde…');
+  assert.equal(c.lastResult[4], undefined);
+  resolve(allowed());
+  await pending;
+  assert.equal(c.lastResult[0], 'allowed');
+  assert.equal(c.lastResult[2], 'Ana');
+});
+
+test('falha de conexão não apresenta nome como se houvesse resultado confirmado', async () => {
+  const c = client({ validateCheckin: async () => { throw Object.assign(Error('rede'), { kind: 'network' }); } });
+  await c.validateToken(token);
+  assert.equal(c.lastResult[0], 'invalid');
+  assert.equal(c.lastResult[2], 'Tente novamente');
+  assert.equal(c.lastResult[4], undefined);
+});

@@ -295,8 +295,7 @@ window.WeddingCheckin = {
     this.pendingToken = null;
     this.validating = true;
     const session = this.credentials;
-    const guest = this.findOfflineGuest(token);
-    this.showResult("reading", "Confirmando entrada…", guest?.name || options.name || "Aguarde…", "Aguarde a confirmação para liberar a entrada.", guest || {});
+    this.showResult("reading", "QR lido — aguarde a validação", "Aguarde…", "Não libere a entrada até aparecer o resultado.");
     if (options.scrollToResult) this.scrollToResult();
     const startedAt = Date.now();
     try {
@@ -329,7 +328,7 @@ window.WeddingCheckin = {
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
         return;
       }
-      this.showResult("invalid", "Entrada não confirmada", guest?.name || "Tente novamente", this.isConnectionError(error)
+      this.showResult("invalid", "Entrada não confirmada", "Tente novamente", this.isConnectionError(error)
         ? "A resposta não chegou. Não libere a entrada; leia o mesmo QR novamente para recuperar a confirmação."
         : error.message || "Não foi possível validar agora.");
       this.afterValidation("invalid", "Entrada não confirmada");
@@ -664,7 +663,7 @@ window.WeddingCheckin = {
   async validateManualGuest(guest, button) {
     if (this.validating) return;
     this.markManualSelection(button, guest);
-    this.showResult("reading", "Validando convite", guest.name || "Convidado", "Consultando a lista de confirmações.");
+    this.showResult("reading", "Aguarde a validação", "Aguarde…", "Não libere a entrada até aparecer o resultado.");
     this.scrollToResult();
 
     if (guest.token) {
