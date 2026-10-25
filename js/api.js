@@ -291,7 +291,13 @@ window.WeddingApi = {
   },
 
   async validateCheckin(data) {
-    return this.checkinRequest("checkin_validate", data);
+    try {
+      return await this.checkinRequest("checkin_validate", data);
+    } catch (error) {
+      if (!data.requestId || !["timeout", "network", "invalid_response", "server"].includes(error.kind)) throw error;
+      // Retry exactly the same operation; the server persists its ID alongside the admission.
+      return this.checkinRequest("checkin_validate", data);
+    }
   },
 
   async searchCheckinGuests(data) {

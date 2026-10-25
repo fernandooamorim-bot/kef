@@ -38,6 +38,7 @@ const HEADERS = {
     "status_checkin",
     "checkin_realizado_em",
     "checkin_por",
+    "checkin_request_id",
     "email_confirmacao_enviado_em",
     "erro_email_confirmacao",
     "origem",
@@ -212,6 +213,7 @@ function doGet(e) {
       return jsonResponse(true, {
         status: "online",
         version: "kef-appscript",
+        checkinVersion: "20261025",
         time: new Date().toISOString()
       });
     }
@@ -782,6 +784,9 @@ function handleCheckinLogin_(data) {
 }
 
 function handleCheckinValidate_(data) {
+  const startedAt = Date.now();
+  const requestId = String(data.requestId || "").trim();
+  if (requestId && !/^[a-zA-Z0-9_-]{16,100}$/.test(requestId)) return jsonResponse(false, null, "Identificador de entrada inválido.");
   const operator = validateOperator_(data);
   if (!operator.ok) return jsonResponse(false, null, operator.error);
 
@@ -829,6 +834,11 @@ function handleCheckinValidate_(data) {
       });
     }
 
+    if (record.checkin_at && requestId && record.checkin_request_id === requestId) {
+      return jsonResponse(true, { status: "allowed", reconciled: true, title: "Entrada confirmada",
+        message: "O registro desta operação já foi salvo.", guest: publicCheckinGuest_(record), durationMs: Date.now() - startedAt });
+    }
+
     if (record.checkin_at) {
       return jsonResponse(true, {
         status: "used",
@@ -838,16 +848,20 @@ function handleCheckinValidate_(data) {
       });
     }
 
-    markCheckin_(record.rowNumber, operator.name || operator.username);
+    const offlineTime = new Date(data.checkedInAt || "");
+    const checkedInAt = data.offline && !isNaN(offlineTime.getTime()) && offlineTime.getTime() <= Date.now() && Date.now() - offlineTime.getTime() < 24 * 60 * 60 * 1000 ? offlineTime : new Date();
+    markCheckin_(record.rowNumber, operator.name || operator.username, requestId, checkedInAt, records);
     SpreadsheetApp.flush();
 
-    record.checkin_at = new Date();
+    record.checkin_at = checkedInAt;
+    record.checkin_request_id = requestId;
     record.checkin_by = operator.name || operator.username;
     record.checkin_status = "validado";
 
     return jsonResponse(true, {
       status: "allowed",
       title: "Entrada liberada",
+      durationMs: Date.now() - startedAt,
       message: "Convite validado com sucesso.",
       guest: publicCheckinGuest_(record)
     });
@@ -874,6 +888,7 @@ function handleCheckinSync_(data) {
 
   return jsonResponse(true, {
     syncedAt: new Date().toISOString(),
+    capabilities: { checkinRequestId: true },
     guests: guests
   });
 }
@@ -1656,7 +1671,7 @@ function readRsvpRecords_() {
     return canonicalHeaderForSheet_(SHEETS.RSVP, header);
   });
 
-  return values
+  const records = values
     .map(function(row, index) {
       const record = headers.reduce(function(acc, header, columnIndex) {
         acc[header] = row[columnIndex];
@@ -1668,6 +1683,17 @@ function readRsvpRecords_() {
     .filter(function(record) {
       return record.guest_name || record.checkin_token;
     });
+  records.byToken = Object.create(null);
+  records.latestByGuest = Object.create(null);
+  records.forEach(function(record) {
+    const token = String(record.checkin_token || "").trim();
+    const guestId = String(record.guest_id || "").trim();
+    if (token) records.byToken[token] = record;
+    if (guestId) records.latestByGuest[guestId] = record;
+  });
+  records.sheet = sheet;
+  records.headers = headers;
+  return records;
 }
 
 function findRsvpByCheckinToken_(token) {
@@ -1677,6 +1703,7 @@ function findRsvpByCheckinToken_(token) {
 function findRsvpByCheckinTokenInRecords_(records, token) {
   const normalizedToken = String(token || "").trim();
   if (!normalizedToken) return null;
+  if (records.byToken) return records.byToken[normalizedToken] || null;
   for (let index = records.length - 1; index >= 0; index -= 1) {
     if (String(records[index].checkin_token || "").trim() === normalizedToken) {
       return records[index];
@@ -1692,6 +1719,7 @@ function findLatestRsvpByGuestId_(guestId) {
 function findLatestRsvpByGuestIdInRecords_(records, guestId) {
   const id = String(guestId || "").trim();
   if (!id) return null;
+  if (records.latestByGuest) return records.latestByGuest[id] || null;
   for (let index = records.length - 1; index >= 0; index -= 1) {
     if (String(records[index].guest_id || "").trim() === id) {
       return records[index];
@@ -1724,22 +1752,27 @@ function findLatestConfirmedRsvpByGuestIdInRecords_(records, guestId) {
   return null;
 }
 
-function markCheckin_(rowNumber, operatorName) {
-  const sheet = getOrCreateSheet_(SHEETS.RSVP, HEADERS.RSVP);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-    .map(function(header) {
-      return canonicalHeaderForSheet_(SHEETS.RSVP, header);
-    });
-
+function markCheckin_(rowNumber, operatorName, requestId, checkedInAt, records) {
+  const sheet = records && records.sheet || getSpreadsheet_().getSheetByName(SHEETS.RSVP);
+  if (!sheet) throw new Error("Lista de confirmações indisponível.");
+  const headers = records && records.headers || sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(function(header) { return canonicalHeaderForSheet_(SHEETS.RSVP, header); });
+  // Reuse the headers already read under the lock. Migrate only missing columns.
+  ["checkin_status", "checkin_at", "checkin_by", "checkin_request_id"].forEach(function(header) {
+    if (headers.indexOf(header) !== -1) return;
+    sheet.getRange(1, headers.length + 1).setValue(header);
+    headers.push(header);
+  });
+  // Persist the operation before the admission marker so a retry can finish a partial write.
+  setRecordValue_(sheet, rowNumber, headers, "checkin_request_id", requestId || "");
   const columns = ["checkin_status", "checkin_at", "checkin_by"].map(function(header) { return headers.indexOf(header); });
-  const values = ["validado", new Date(), operatorName];
-  if (columns.every(function(column, index) { return column !== -1 && (index === 0 || column === columns[index - 1] + 1); })) {
+  const values = ["validado", checkedInAt || new Date(), operatorName];
+  if (columns.every(function(column, index) { return index === 0 || column === columns[index - 1] + 1; })) {
     sheet.getRange(rowNumber, columns[0] + 1, 1, 3).setValues([values]);
     return;
   }
-  ["checkin_status", "checkin_at", "checkin_by"].forEach(function(header, index) {
-    setRecordValue_(sheet, rowNumber, headers, header, values[index]);
-  });
+  // Write the admission timestamp last when columns have been rearranged.
+  [0, 2, 1].forEach(function(index) { sheet.getRange(rowNumber, columns[index] + 1).setValue(values[index]); });
 }
 
 function setRecordValue_(sheet, rowNumber, headers, canonicalHeader, value) {

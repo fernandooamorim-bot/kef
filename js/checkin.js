@@ -13,6 +13,9 @@ window.WeddingCheckin = {
   sessionKey: "kf_checkin_operator",
   rosterKey: "kf_checkin_roster_v1",
   offlineQueueKey: "kf_checkin_queue_v1",
+  operationKey: "kf_checkin_operations_v1",
+  admissionKey: "kf_checkin_admissions_v1",
+  syncRetryMs: 15000,
   rosterTtlMs: 2 * 60 * 60 * 1000,
 
   init() {
@@ -68,17 +71,20 @@ window.WeddingCheckin = {
     this.manualCancelButton.addEventListener("click", () => this.manualConfirmDialog.close());
     this.manualConfirmButton.addEventListener("click", () => this.confirmManualSelection());
     this.manualConfirmDialog.addEventListener("close", () => { this.manualSelection = null; });
-    window.addEventListener("online", () => this.syncPendingCheckins());
+    window.addEventListener("online", () => this.syncRoster({ silent: true }));
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden && navigator.onLine) this.syncPendingCheckins();
     });
+    window.setInterval(() => {
+      if (this.credentials && !document.hidden && navigator.onLine && !this.validating && !this.offlineModeToggle?.checked) this.syncRoster({ silent: true });
+    }, 60000);
     this.syncButton?.addEventListener("click", () => this.syncRoster());
     this.offlineModeToggle?.addEventListener("change", () => {
       if (this.offlineModeToggle.checked && this.isRosterStale()) {
         this.offlineModeToggle.checked = false;
         this.renderSyncState("Atualize a lista antes de ativar o modo offline.");
       } else {
-        this.renderSyncState(this.offlineModeToggle.checked ? "Modo offline autorizado neste aparelho." : "Validação online ativa.");
+        this.renderSyncState(this.offlineModeToggle.checked ? "Modo offline ativo. Use somente este aparelho para liberar entradas." : "Validação online ativa.");
       }
     });
   },
@@ -130,6 +136,7 @@ window.WeddingCheckin = {
     this.stopScanner();
     if (this.manualConfirmDialog?.open) this.manualConfirmDialog.close();
     if (this.offlineModeToggle) this.offlineModeToggle.checked = false;
+    window.clearTimeout(this.syncRetryTimer);
     this.clearSession();
     this.credentials = null;
     this.app.hidden = true;
@@ -173,6 +180,7 @@ window.WeddingCheckin = {
   },
 
   async startScanner() {
+    if (this.scanning || this.startingScanner) return;
     if (!navigator.mediaDevices?.getUserMedia) {
       this.showResult("invalid", "Câmera indisponível", "Use a busca manual", "Este navegador não liberou acesso à câmera.");
       return;
@@ -183,9 +191,11 @@ window.WeddingCheckin = {
       return;
     }
 
+    this.startingScanner = true;
+    this.startButton.disabled = true;
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
       });
       this.video.srcObject = this.stream;
@@ -198,13 +208,17 @@ window.WeddingCheckin = {
       this.scanFrame();
     } catch (error) {
       this.showResult("invalid", "Câmera bloqueada", "Use a busca manual", "Permita o acesso à câmera ou faça a validação pelo nome.");
+      this.stopScanner();
       this.setScannerSignal("error", "Câmera bloqueada.");
+    } finally {
+      this.startingScanner = false;
+      this.startButton.disabled = this.scanning;
     }
   },
 
   stopScanner() {
     this.scanning = false;
-    this.validating = false;
+    window.cancelAnimationFrame?.(this.frameId);
     window.clearTimeout(this.resetTimer);
     if (this.stream) {
       this.stream.getTracks().forEach((track) => track.stop());
@@ -218,61 +232,108 @@ window.WeddingCheckin = {
 
   scanFrame() {
     if (!this.scanning) return;
+    this.frameId = window.requestAnimationFrame(() => this.scanFrame());
+    const now = Date.now();
+    if (this.validating || document.hidden || this.manualConfirmDialog?.open || now < this.readLockedUntil || now - (this.lastFrameAt || 0) < 120) return;
+    this.lastFrameAt = now;
+    const sourceWidth = this.video.videoWidth, sourceHeight = this.video.videoHeight;
+    if (!sourceWidth || !sourceHeight) return;
+    const scale = Math.min(1, 800 / Math.max(sourceWidth, sourceHeight));
+    const width = Math.round(sourceWidth * scale), height = Math.round(sourceHeight * scale);
     const context = this.canvas.getContext("2d", { willReadFrequently: true });
-    const width = this.video.videoWidth;
-    const height = this.video.videoHeight;
-
-    if (width && height) {
-      this.canvas.width = width;
-      this.canvas.height = height;
-      context.drawImage(this.video, 0, 0, width, height);
-      const imageData = context.getImageData(0, 0, width, height);
-      const code = window.jsQR(imageData.data, width, height);
-      if (code?.data && Date.now() >= this.readLockedUntil && !this.validating) this.handleQrValue(code.data);
-    }
-
-    window.requestAnimationFrame(() => this.scanFrame());
+    if (this.canvas.width !== width) this.canvas.width = width;
+    if (this.canvas.height !== height) this.canvas.height = height;
+    context.drawImage(this.video, 0, 0, width, height);
+    const imageData = context.getImageData(0, 0, width, height);
+    const code = window.jsQR(imageData.data, width, height);
+    if (code?.data) this.handleQrValue(code.data);
   },
 
   handleQrValue(value) {
     const now = Date.now();
+    value = this.extractToken(value) || value;
     if (value === this.lastToken && now - this.lastReadAt < 5500) return;
     this.lastToken = value;
     this.lastReadAt = now;
-    this.readLockedUntil = now + 3200;
+    this.readLockedUntil = now + 900;
     this.setScannerSignal("validating", "QR Code lido. Validando convite...");
     this.playFeedback("read");
     this.validateToken(value);
   },
 
-  async validateToken(token, options = {}) {
-    if (!this.credentials) {
-      this.pendingToken = token;
+  newRequestId() {
+    return window.crypto?.randomUUID?.() || `entry-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  },
+
+  readStored(key, fallback = {}) {
+    try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; } catch { return fallback; }
+  },
+
+  writeStored(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; }
+  },
+
+  async withEntryLock(task) {
+    if (typeof navigator !== "undefined" && navigator.locks?.request) {
+      return navigator.locks.request("kf-checkin-entry", { ifAvailable: true }, lock => {
+        if (!lock) throw new Error("Outra aba está registrando uma entrada. Use somente uma aba de check-in.");
+        return task();
+      });
+    }
+    return task();
+  },
+
+  async validateToken(value, options = {}) {
+    if (!this.credentials) { this.pendingToken = value; return; }
+    if (this.validating) return;
+    const token = this.extractToken(value);
+    if (!token) {
+      this.showResult("invalid", "QR Code inválido", "Use o convite do casamento", "Este código não contém um convite válido.");
+      this.afterValidation("invalid", "QR Code inválido");
       return;
     }
-
+    this.pendingToken = null;
     this.validating = true;
-    this.showResult("reading", "Validando convite", options.name || "Aguarde...", "Consultando a lista de confirmações.");
+    const session = this.credentials;
+    const guest = this.findOfflineGuest(token);
+    this.showResult("reading", "Confirmando entrada…", guest?.name || options.name || "Aguarde…", "Aguarde a confirmação para liberar a entrada.", guest || {});
     if (options.scrollToResult) this.scrollToResult();
+    const startedAt = Date.now();
     try {
-      const result = await window.WeddingApi.validateCheckin({
-        ...this.credentials,
-        token
+      await this.withEntryLock(async () => {
+        const operations = this.readStored(this.operationKey);
+        if (this.offlineModeToggle?.checked) {
+          if (operations[token]) throw new Error("Há uma validação online sem resposta para este QR. Desative o modo offline e leia novamente para conferir o registro.");
+          if (!this.validateOffline(token, options)) throw new Error("Convite não encontrado na lista local. Confira online.");
+          return;
+        }
+        const operation = operations[token] || { requestId: this.newRequestId() };
+        operations[token] = operation;
+        if (!this.writeStored(this.operationKey, operations)) throw new Error("Não foi possível guardar a operação neste aparelho. Libere espaço ou use outro aparelho.");
+        // The same ID survives timeouts, reloads and retries. Never turn an uncertain online write into an offline admission.
+        const result = await window.WeddingApi.validateCheckin({ ...session, token, requestId: operation.requestId });
+        const persisted = this.credentials === session ? this.renderValidation(result, options) !== false : false;
+        if (result.status !== "busy" && persisted) {
+          const latest = this.readStored(this.operationKey);
+          delete latest[token];
+          this.writeStored(this.operationKey, latest);
+        }
+        if (this.credentials !== session) return;
+        this.lastValidationMs = Date.now() - startedAt;
+        if (this.resultMessage) this.resultMessage.textContent += ` (${(this.lastValidationMs / 1000).toFixed(1)} s)`;
       });
-      this.renderValidation(result, options);
     } catch (error) {
+      if (this.credentials !== session) return;
       if (this.isInvalidSessionError(error)) {
         this.logout();
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
         return;
       }
-      if (this.offlineModeToggle?.checked && this.isConnectionError(error) && this.validateOffline(token, options)) return;
-      this.showResult("invalid", "Falha na validação", "Tente novamente", error.message || "Não foi possível validar agora.");
-      if (options.scrollToResult) this.scrollToResult();
-      this.afterValidation("invalid", "Falha na validação");
-    } finally {
-      this.validating = false;
-    }
+      this.showResult("invalid", "Entrada não confirmada", guest?.name || "Tente novamente", this.isConnectionError(error)
+        ? "A resposta não chegou. Não libere a entrada; leia o mesmo QR novamente para recuperar a confirmação."
+        : error.message || "Não foi possível validar agora.");
+      this.afterValidation("invalid", "Entrada não confirmada");
+    } finally { this.validating = false; }
   },
 
   async searchManual(event) {
@@ -284,6 +345,8 @@ window.WeddingCheckin = {
       return;
     }
 
+    const local = this.searchOfflineGuests(query);
+    if (local.length || this.offlineModeToggle?.checked) { this.renderManualResults(local); return; }
     this.manualResults.innerHTML = '<p class="checkin-status">Buscando...</p>';
     try {
       const result = await window.WeddingApi.searchCheckinGuests({
@@ -311,11 +374,14 @@ window.WeddingCheckin = {
     if (!this.credentials || this.syncing) return false;
     this.syncing = true;
     if (this.syncButton) this.syncButton.disabled = true;
-    if (!options.silent) this.setSyncState("Atualizando lista...", "Baixando confirmações e enviando validações pendentes.");
+    const session = this.credentials;
+    window.clearTimeout(this.syncRetryTimer);
+    this.setSyncState("Atualizando lista...", "Baixando confirmações e enviando validações pendentes.");
 
     try {
       const queueResult = await this.flushOfflineQueue();
-      const result = await window.WeddingApi.syncCheckinRoster(this.credentials);
+      const result = await window.WeddingApi.syncCheckinRoster(session);
+      if (this.credentials !== session) return false;
       if (!Array.isArray(result?.guests)) {
         throw new Error("O servidor não enviou uma lista válida.");
       }
@@ -328,7 +394,8 @@ window.WeddingCheckin = {
           ? ` ${queueResult.synced} validação(ões) offline foram sincronizadas.`
           : "";
       const conflicts = queueResult.conflicts ? ` ${queueResult.conflicts} entrada(s) exigem conferência manual.` : "";
-      this.renderSyncState(`Lista atualizada.${suffix}${conflicts}`);
+      this.syncRetryMs = 15000;
+      this.renderSyncState(`Lista pronta.${suffix}${conflicts}`);
       return true;
     } catch (error) {
       if (this.isInvalidSessionError(error)) {
@@ -336,7 +403,11 @@ window.WeddingCheckin = {
         this.loginStatus.textContent = "Seu acesso foi atualizado. Faça login novamente.";
         return false;
       }
-      this.renderSyncState("Não foi possível atualizar a lista agora.");
+      this.renderSyncState("Falha ao atualizar. Nova tentativa automática em instantes.");
+      if (this.credentials === session) {
+        this.syncRetryTimer = window.setTimeout(() => this.syncRoster({ silent: true }), this.syncRetryMs);
+        this.syncRetryMs = Math.min(this.syncRetryMs * 2, 60000);
+      }
       return false;
     } finally {
       this.syncing = false;
@@ -351,37 +422,40 @@ window.WeddingCheckin = {
   },
 
   async flushOfflineQueue() {
-    const queue = this.readOfflineQueue();
-    if (!queue.length) return { synced: 0, pending: 0, conflicts: 0 };
-
-    const remaining = [];
+    let queue = this.readOfflineQueue();
+    if (queue.some(item => !item.requestId && !item.conflict)) {
+      queue = queue.map(item => item.requestId || item.conflict ? item : { ...item, requestId: this.newRequestId() });
+      if (!this.writeOfflineQueue(queue)) throw new Error("Não foi possível preparar as entradas pendentes.");
+    }
+    const processed = new Map();
     let synced = 0;
-    let conflicts = 0;
     for (const item of queue) {
-      if (item.conflict) {
-        remaining.push(item);
-        conflicts += 1;
-        continue;
-      }
+      if (item.conflict) continue;
       try {
         const result = await window.WeddingApi.validateCheckin({
-          ...this.credentials,
-          token: item.token
+          ...this.credentials, token: item.token, requestId: item.requestId,
+          offline: true, checkedInAt: item.checkedInAt
         });
-        if (result.status === "allowed") {
-          synced += 1;
-        } else if (result.status === "used" || result.status === "invalid") {
-          remaining.push({ ...item, conflict: true });
-          conflicts += 1;
-        } else {
-          remaining.push(item);
-        }
+        if (result.status === "allowed") { processed.set(item.token, null); synced++; }
+        else if (result.status === "used" || result.status === "invalid") processed.set(item.token, { ...item, conflict: true });
+        else break;
       } catch (error) {
-        remaining.push(item);
+        if (this.isInvalidSessionError(error)) throw error;
+        break;
       }
     }
-    if (!this.writeOfflineQueue(remaining)) throw new Error("Não foi possível atualizar as validações pendentes neste aparelho.");
-    return { synced, pending: remaining.filter((item) => !item.conflict).length, conflicts };
+    // Merge into the CURRENT queue; entries added while the requests ran must survive.
+    const save = () => {
+      const remaining = this.readOfflineQueue().flatMap(item => {
+        if (!processed.has(item.token)) return [item];
+        const updated = processed.get(item.token);
+        return updated ? [updated] : [];
+      });
+      if (!this.writeOfflineQueue(remaining)) throw new Error("Não foi possível atualizar as validações pendentes neste aparelho.");
+      return { synced, pending: remaining.filter(item => !item.conflict).length, conflicts: remaining.filter(item => item.conflict).length };
+    };
+    if (typeof navigator !== "undefined" && navigator.locks?.request) return navigator.locks.request("kf-checkin-entry", save);
+    return save();
   },
 
   validateOffline(token, options = {}) {
@@ -408,6 +482,7 @@ window.WeddingCheckin = {
     const checkedInAt = new Date().toISOString();
     if (!this.writeOfflineQueue([...this.readOfflineQueue(), {
       token: guest.token,
+      requestId: this.newRequestId(),
       checkedInAt
     }])) {
       this.showResult("invalid", "Não foi possível salvar", guest.name, "Este aparelho não conseguiu registrar a entrada offline.");
@@ -430,8 +505,12 @@ window.WeddingCheckin = {
 
   readRoster() {
     try {
-      const roster = JSON.parse(localStorage.getItem(this.rosterKey) || "null");
+      const raw = localStorage.getItem(this.rosterKey);
+      if (raw && raw === this.rosterRaw) return this.rosterCached;
+      const roster = JSON.parse(raw || "null");
       if (!roster?.guests || !Array.isArray(roster.guests)) return null;
+      this.rosterRaw = raw;
+      this.rosterCached = roster;
       return roster;
     } catch (error) {
       return null;
@@ -440,7 +519,10 @@ window.WeddingCheckin = {
 
   writeRoster(guests, syncedAt) {
     try {
+      const admissions = this.readStored(this.admissionKey);
+      guests = guests.map(guest => admissions[guest.token] ? { ...guest, checkinStatus: "validado", checkinAt: admissions[guest.token].checkinAt, checkinBy: admissions[guest.token].checkinBy } : guest);
       localStorage.setItem(this.rosterKey, JSON.stringify({ guests, syncedAt }));
+      this.rosterIndexSource = null;
     } catch (error) {
       return false;
     }
@@ -450,7 +532,16 @@ window.WeddingCheckin = {
   findOfflineGuest(value) {
     const token = this.extractToken(value);
     if (!token) return null;
-    return this.readRoster()?.guests.find((guest) => String(guest.token || "") === token) || null;
+    const roster = this.readRoster();
+    if (!roster) return null;
+    if (this.rosterIndexSource !== roster.syncedAt) {
+      this.rosterIndex = new Map(roster.guests.map(guest => [guest.token, guest]));
+      this.rosterIndexSource = roster.syncedAt;
+    }
+    const guest = this.rosterIndex.get(token);
+    if (!guest) return null;
+    const admission = this.readStored(this.admissionKey)[token];
+    return admission ? { ...guest, checkinStatus: "validado", checkinAt: admission.checkinAt, checkinBy: admission.checkinBy } : { ...guest };
   },
 
   searchOfflineGuests(query) {
@@ -511,12 +602,13 @@ window.WeddingCheckin = {
     const pending = pendingCount ? ` ${pendingCount} validação(ões) pendente(s).` : "";
     const conflicts = conflictCount ? ` ${conflictCount} entrada(s) exigem conferência manual.` : "";
     const stale = this.isRosterStale() ? " A lista precisa ser atualizada antes de uso offline." : "";
-    this.setSyncState(message || "Lista disponível neste aparelho.", `${roster.guests.length} confirmações sincronizadas em ${label}.${pending}${conflicts}${stale}`);
+    this.setSyncState(message || (this.offlineModeToggle?.checked ? "Modo offline ativo — use um único aparelho." : "Lista pronta neste aparelho."), `${roster.guests.length} confirmações sincronizadas em ${label}.${pending}${conflicts}${stale}`);
   },
 
   setSyncState(status, details = "") {
     if (this.syncStatus) this.syncStatus.textContent = status || "";
     if (this.syncDetails) this.syncDetails.textContent = details || "";
+    if (this.syncStatus) this.syncStatus.dataset.state = /Falha|Não foi|Nenhuma|Atenção/.test(status) ? "error" : "ready";
   },
 
   isConnectionError(error) {
@@ -526,7 +618,9 @@ window.WeddingCheckin = {
   extractToken(value) {
     const raw = String(value || "").trim();
     const match = raw.match(/[?&]t=([^&#]+)/i);
-    if (match) return decodeURIComponent(match[1]).trim().toUpperCase();
+    if (match) {
+      try { const token = decodeURIComponent(match[1]).trim().toUpperCase(); return /^CHK-[A-Z0-9]+-[A-Z0-9]+$/.test(token) ? token : ""; } catch { return ""; }
+    }
     const token = raw.match(/CHK-[A-Z0-9]+-[A-Z0-9]+/i);
     return token ? token[0].toUpperCase() : "";
   },
@@ -601,6 +695,7 @@ window.WeddingCheckin = {
 
   restoreManualSelection(button, guest) {
     if (!button) return;
+    guest = this.findOfflineGuest(guest.token) || guest;
     button.classList.remove("is-validating");
     button.disabled = false;
     button.innerHTML = `<strong>${this.escape(guest.name || "Convidado")}</strong><span>${this.escape(this.describeGuest(guest))}</span>`;
@@ -622,10 +717,19 @@ window.WeddingCheckin = {
 
   renderValidation(result, options = {}) {
     const guest = result.guest || {};
+    let persisted = true;
+    if (["allowed", "used"].includes(result.status) && guest.token) {
+      const admissions = this.readStored(this.admissionKey);
+      admissions[guest.token] = { ...guest, checkinStatus: "validado" };
+      persisted = this.writeStored(this.admissionKey, admissions);
+      if (!persisted) this.renderSyncState("Atenção: registro online salvo, mas a cópia local falhou. Não use offline neste aparelho.");
+      this.updateOfflineGuest(admissions[guest.token]);
+    }
     this.showResult(result.status, result.title, guest.name || "Convite", result.message, guest);
     if (options.scrollToResult) this.scrollToResult();
     this.afterValidation(result.status, result.title, guest.name || "Convite", result.message);
     this.addHistory(result.status, result.title, guest.name || "Convite", result.message);
+    return persisted;
   },
 
   scrollToResult() {
@@ -643,14 +747,14 @@ window.WeddingCheckin = {
       ? "Convite validado. Próxima leitura em instantes."
       : `${title || "Leitura registrada"}. Próxima leitura em instantes.`;
 
-    this.readLockedUntil = Date.now() + 3200;
+    this.readLockedUntil = Date.now() + 900;
     this.setScannerSignal(signalMode, text);
     this.playFeedback(soundMode);
     window.clearTimeout(this.resetTimer);
     this.resetTimer = window.setTimeout(() => {
       if (!this.scanning) return;
       this.setScannerSignal("reading", "Pronto para o próximo QR Code.");
-    }, 3200);
+    }, 900);
   },
 
   registerServiceWorker() {

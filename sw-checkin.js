@@ -1,4 +1,4 @@
-const CHECKIN_CACHE = "kf-checkin-v13";
+const CHECKIN_CACHE = "kf-checkin-v14";
 const CHECKIN_ASSETS = [
   "./checkin.html",
   "./convite.html",
@@ -55,15 +55,14 @@ self.addEventListener("fetch", (event) => {
   if (!asset) return;
   const cacheKey = new URL(asset, self.registration.scope);
 
+  // Installation precaches a complete version, available even on a stalled connection.
   event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response && (response.ok || response.type === "opaque")) {
-          const copy = response.clone();
-          caches.open(CHECKIN_CACHE).then((cache) => cache.put(cacheKey, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match(cacheKey))
+    caches.open(CHECKIN_CACHE).then(async (cache) => {
+      const cached = await cache.match(cacheKey);
+      if (cached) return cached;
+      const response = await fetch(request);
+      if (response.ok) await cache.put(cacheKey, response.clone());
+      return response;
+    })
   );
 });

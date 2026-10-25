@@ -87,3 +87,15 @@ O resumo também mostra o **valor pendente** e o **total ativo** (recebido + pen
 ### Presentes recebidos fora do site
 
 A ação autenticada `admin_create_gift` registra nome, descrição, tipo e data, sem telefone ou e-mail. Pix, transferência e dinheiro exigem valor positivo e entram como pagos. Presentes físicos usam `provider=manual_physical`, status `recebido` e valor vazio: entram na contagem e no histórico, sem compor totais financeiros. A origem é `admin_manual`. O código `MANUAL-<requestId>` torna as novas tentativas do mesmo cadastro idempotentes. O formulário mantém o mesmo pedido após falha de conexão; o servidor rejeita datas inválidas ou futuras. Não é necessário alterar manualmente as colunas da planilha.
+
+## Portaria — atualização de 25/10/2026
+
+- Publicar o Apps Script antes do site. A coluna `checkin_request_id` é adicionada automaticamente, sob o bloqueio da planilha, na primeira gravação que precisar dela. Não apagar essa coluna: ela permite recuperar respostas perdidas sem registrar uma segunda entrada.
+- Cada leitura online salva um identificador no aparelho antes de enviar. Em falha de transporte, a API repete uma vez a mesma operação. Uma leitura posterior/reabertura mantém esse identificador enquanto a resposta estiver incerta. Uma operação online incerta não pode virar liberação offline.
+- O servidor continua lendo os registros atuais sob bloqueio; os índices de token e convidado são construídos dessa leitura, sem cache de autorização. Cabeçalhos são reutilizados e a estrutura completa da planilha não é revisada em cada check-in.
+- A lista baixa automaticamente no acesso e é atualizada a cada minuto enquanto a tela está visível, online e fora do modo offline. Falhas têm novas tentativas entre 15 e 60 segundos. A lista continua válida por duas horas para contingência; esse prazo não significa que as entradas de outros celulares estejam atualizadas durante uma queda.
+- O modo offline agora é explícito e imediato: não tenta a rede antes de cada entrada. Utilizar somente um aparelho e uma aba durante a queda. Pendências conservam ID e horário; conflitos continuam visíveis e exigem conferência.
+- O tempo exibido após uma validação online é o tempo total percebido naquele aparelho. Não representa garantia de latência. Fazer ensaio com dois celulares antes da recepção: QR válido, repetido, dois celulares no mesmo QR, queda e retorno da rede, reabertura e QR substituído.
+- O service worker usa uma versão completa em cache, evitando esperar por rede instável ao abrir a tela. Incrementar `CHECKIN_CACHE` ao publicar alterações em arquivos precacheados e reabrir a página para usar o novo JavaScript.
+
+Verificação local: `node --test tests/*.test.cjs` na raiz do site. Os testes usam dados fictícios e não registram convidados reais.

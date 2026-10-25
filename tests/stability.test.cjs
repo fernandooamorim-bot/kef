@@ -261,7 +261,9 @@ test("check-in não usa lista offline sem escolha do operador", async () => {
 test("busca manual só valida após confirmação do operador", async () => {
   let requests = 0;
   const window = { WeddingApi: { validateCheckin: async () => { requests += 1; return { status: "allowed", title: "Entrada liberada", guest: { name: "Pessoa Teste" } }; } } };
-  const context = vm.createContext({ window, console, document: { addEventListener: () => {} } });
+  const values = new Map();
+  const localStorage = { getItem: key => values.get(key) || null, setItem: (key, value) => values.set(key, value) };
+  const context = vm.createContext({ window, localStorage, console, document: { addEventListener: () => {} } });
   vm.runInContext(fs.readFileSync(path.join(root, "js/checkin.js"), "utf8"), context);
   const checkin = window.WeddingCheckin;
   checkin.credentials = { sessionToken: "test" };
@@ -324,7 +326,7 @@ test("service worker reconhece caminho /kef/ e versão na URL", async () => {
     registration: { scope: "https://example.test/kef/" },
     addEventListener: (name, handler) => { handlers[name] = handler; }
   };
-  const caches = { open: async () => ({ put: async () => {} }), match: async () => null };
+  const caches = { open: async () => ({ put: async () => {}, match: async () => null }), match: async () => null };
   const context = vm.createContext({ self, caches, URL, fetch: async () => ({ ok: true, clone: () => ({}) }) });
   vm.runInContext(fs.readFileSync(path.join(root, "sw-checkin.js"), "utf8"), context);
   let handled = false;
@@ -626,4 +628,30 @@ test("presente físico fica no histórico sem compor valores financeiros", () =>
   assert.doesNotMatch(admin.giftList.innerHTML, /data-confirm-gift|data-cancel-gift/);
   assert.match(admin.giftsSummary.innerHTML, /Físicos recebidos/);
   assert.equal(admin.giftPaymentState(admin.gifts[0]), "physical");
+});
+
+test("check-in recupera mesma operação, rejeita outro aparelho e preserva horário offline", () => {
+  const { context } = backend();
+  const record = { guest_id: "KF001", guest_name: "Ana", attendance: "confirmed", checkin_token: "CHK-KF001-ABC", rowNumber: 2 };
+  context.validateOperator_ = () => ({ ok: true, name: "Portaria" });
+  context.readRsvpRecords_ = () => [record];
+  let writes = 0;
+  context.markCheckin_ = (row, name, requestId, date) => { writes++; record.checkin_request_id = requestId; record.checkin_at = date; };
+  const data = { token: record.checkin_token, requestId: "request-1234567890123456", offline: true, checkedInAt: new Date(Date.now() - 60000).toISOString() };
+  assert.equal(context.handleCheckinValidate_(data).data.status, "allowed");
+  assert.equal(record.checkin_at.toISOString(), data.checkedInAt);
+  assert.equal(context.handleCheckinValidate_(data).data.reconciled, true);
+  assert.equal(context.handleCheckinValidate_({ ...data, requestId: "request-2234567890123456" }).data.status, "used");
+  assert.equal(writes, 1);
+});
+
+test("gravação de check-in reutiliza cabeçalhos e escreve ID antes da entrada", () => {
+  const { context } = backend(); const writes = [];
+  const sheet = { getRange: (r,c,h,w) => ({ setValue: v => writes.push({ c,v }), setValues: v => writes.push({ c,v }) }) };
+  context.getOrCreateSheet_ = () => { throw Error("Não deve revisar estrutura a cada entrada"); };
+  const records = { sheet, headers: ["checkin_status", "checkin_at", "checkin_by", "checkin_request_id"] };
+  context.markCheckin_(2, "Portaria", "request-1234567890123456", new Date(), records);
+  assert.equal(writes.length, 2);
+  assert.equal(writes[0].c, 4);
+  assert.equal(writes[1].c, 1);
 });

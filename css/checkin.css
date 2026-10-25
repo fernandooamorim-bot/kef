@@ -575,3 +575,5 @@
     width: 100%;
   }
 }
+
+#syncStatus[data-state="error"] { color: #a52626; }
