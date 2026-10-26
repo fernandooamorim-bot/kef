@@ -888,7 +888,7 @@ window.WeddingCheckin = {
   resultPresentation(status, title = "") {
     if (status === "allowed") return { variant: "allowed", heading: "Entrada liberada", icon: "✓", reason: title === "Entrada liberada" ? "" : title };
     if (status === "used") return { variant: "used", heading: "Conferir entrada", icon: "!", reason: title || "Convite já utilizado" };
-    if (status === "reading") return { variant: "reading", heading: "Validando — aguarde", icon: "…", reason: title };
+    if (status === "reading") return { variant: "reading", heading: "Validando…", icon: "…", reason: title };
     if (status === "busy" || (status === "invalid" && /câmera|leitor indisponível|entrada não confirmada|falha na validação|lista offline desatualizada|não foi possível salvar/i.test(title))) {
       return { variant: "warning", heading: "Aguarde a validação", icon: "!", reason: title };
     }

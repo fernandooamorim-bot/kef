@@ -236,7 +236,7 @@ test('apresentação distingue aprovação, recusa e espera sem mudar o status r
     ['invalid','QR Code substituído','invalid','Conferir convite'],
     ['invalid','Entrada não confirmada','warning','Aguarde a validação'],
     ['busy','Validação em andamento','warning','Aguarde a validação'],
-    ['reading','QR lido — aguarde a validação','reading','Validando — aguarde']
+    ['reading','QR lido — aguarde a validação','reading','Validando…']
   ]) {
     const view=c.resultPresentation(status,title);
     assert.equal(view.variant,variant); assert.equal(view.heading,heading);
