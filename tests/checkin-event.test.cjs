@@ -224,3 +224,42 @@ test('temporizador de 5 segundos é instalado para sincronização em segundo pl
   intervals.find(i=>i.ms===5000).fn();
   assert.equal(ticks,1);
 });
+
+test('apresentação distingue aprovação, recusa e espera sem mudar o status recebido', () => {
+  const c=client();
+  for (const [status,title,variant,heading] of [
+    ['allowed','Entrada liberada','allowed','Entrada liberada'],
+    ['allowed','Entrada liberada (offline)','allowed','Entrada liberada'],
+    ['used','Convite já utilizado','used','Conferir entrada'],
+    ['invalid','Convite inválido','invalid','Conferir convite'],
+    ['invalid','Convite não confirmado','invalid','Conferir convite'],
+    ['invalid','QR Code substituído','invalid','Conferir convite'],
+    ['invalid','Entrada não confirmada','warning','Aguarde a validação'],
+    ['busy','Validação em andamento','warning','Aguarde a validação'],
+    ['reading','QR lido — aguarde a validação','reading','Validando — aguarde']
+  ]) {
+    const view=c.resultPresentation(status,title);
+    assert.equal(view.variant,variant); assert.equal(view.heading,heading);
+    assert.ok(view.icon);
+  }
+});
+
+test('painel preserva nome, motivo, mensagem, acompanhante, horário e operador', () => {
+  const window={};
+  vm.runInNewContext(source,{window,document:{addEventListener(){},createElement(){return {innerHTML:''};}}});
+  const c=window.WeddingCheckin;
+  for(const key of ['resultPanel','resultTitle','resultIcon','resultReason','resultName','resultMessage'])c[key]={};
+  c.resultDetails={children:[],set innerHTML(v){this.children=[]},appendChild(row){this.children.push(row)}};
+  c.formatDate=()=> '26/10/2026, 19:42';
+  const guest={companionsConfirmed:1,companionName:'Rafael Exemplo',checkinAt:'2026-10-26T22:42:00Z',checkinBy:'Portaria 01'};
+  c.showResult('used','Convite já utilizado','Marina Exemplo','Este QR Code já foi validado anteriormente.',guest);
+  assert.equal(c.resultTitle.textContent,'Conferir entrada');
+  assert.equal(c.resultReason.textContent,'Convite já utilizado');
+  assert.equal(c.resultName.textContent,'Marina Exemplo');
+  assert.equal(c.resultMessage.textContent,'Este QR Code já foi validado anteriormente.');
+  const details=c.resultDetails.children.map(row=>row.innerHTML).join('');
+  for(const value of ['Rafael Exemplo','19:42','Portaria 01'])assert.ok(details.includes(value));
+  c.showResult('reading','QR lido — aguarde a validação','Aguarde…','Não libere a entrada até aparecer o resultado.');
+  assert.equal(c.resultDetails.children.length,0);
+  assert.equal(c.resultName.textContent,'Aguarde…');
+});

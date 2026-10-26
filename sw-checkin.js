@@ -1,4 +1,4 @@
-const CHECKIN_CACHE = "kf-checkin-v16";
+const CHECKIN_CACHE = "kf-checkin-v17";
 const CHECKIN_ASSETS = [
   "./checkin.html",
   "./convite.html",

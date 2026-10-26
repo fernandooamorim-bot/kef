@@ -42,6 +42,8 @@ window.WeddingCheckin = {
     this.logoutButton = document.getElementById("logoutButton");
     this.resultPanel = document.getElementById("resultPanel");
     this.resultTitle = document.getElementById("resultTitle");
+    this.resultIcon = document.getElementById("resultIcon");
+    this.resultReason = document.getElementById("resultReason");
     this.resultName = document.getElementById("resultName");
     this.resultMessage = document.getElementById("resultMessage");
     this.resultDetails = document.getElementById("resultDetails");
@@ -788,7 +790,8 @@ window.WeddingCheckin = {
   },
 
   afterValidation(status, title) {
-    const signalMode = status === "allowed" ? "valid" : "error";
+    const presentation = this.resultPresentation(status, title);
+    const signalMode = status === "allowed" ? "valid" : presentation.variant === "warning" ? "warning" : "error";
     const soundMode = status === "allowed" ? "success" : status === "used" ? "warning" : "error";
     const text = status === "allowed"
       ? "Convite validado. Próxima leitura em instantes."
@@ -882,9 +885,24 @@ window.WeddingCheckin = {
     });
   },
 
+  resultPresentation(status, title = "") {
+    if (status === "allowed") return { variant: "allowed", heading: "Entrada liberada", icon: "✓", reason: title === "Entrada liberada" ? "" : title };
+    if (status === "used") return { variant: "used", heading: "Conferir entrada", icon: "!", reason: title || "Convite já utilizado" };
+    if (status === "reading") return { variant: "reading", heading: "Validando — aguarde", icon: "…", reason: title };
+    if (status === "busy" || (status === "invalid" && /câmera|leitor indisponível|entrada não confirmada|falha na validação|lista offline desatualizada|não foi possível salvar/i.test(title))) {
+      return { variant: "warning", heading: "Aguarde a validação", icon: "!", reason: title };
+    }
+    if (status === "invalid") return { variant: "invalid", heading: "Conferir convite", icon: "!", reason: title };
+    return { variant: "idle", heading: title, icon: "•", reason: "" };
+  },
+
   showResult(status, title, name, message, guest = {}) {
-    this.resultPanel.className = `checkin-result checkin-result--${status || "idle"}`;
-    this.resultTitle.textContent = title || "";
+    const presentation = this.resultPresentation(status, title);
+    this.resultPanel.className = `checkin-result checkin-result--${presentation.variant}`;
+    this.resultTitle.textContent = presentation.heading;
+    this.resultIcon.textContent = presentation.icon;
+    this.resultReason.textContent = presentation.reason;
+    this.resultReason.hidden = !presentation.reason;
     this.resultName.textContent = name || "";
     this.resultMessage.textContent = message || "";
     this.resultDetails.innerHTML = "";
