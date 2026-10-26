@@ -8,8 +8,11 @@ const token = 'CHK-KF001-ABC';
 function client(api = {}, storage = new Map()) {
   const localStorage = { getItem: k => storage.get(k) || null, setItem: (k,v) => storage.set(k,v) };
   const window = { WeddingApi: api, clearTimeout() {}, setTimeout() {}, requestAnimationFrame() {}, crypto: { randomUUID: () => 'request-1234567890123456' } };
-  vm.runInNewContext(source, { window, localStorage, document: { addEventListener() {}, hidden: false }, console });
+  const document = { addEventListener() {}, hidden: false };
+  const navigator = { onLine: true };
+  vm.runInNewContext(source, { window, localStorage, document, navigator, console });
   const c = window.WeddingCheckin;
+  c.testEnvironment = { window, document, navigator };
   c.credentials = { name: 'Equipe', sessionToken: 'test' };
   c.offlineModeToggle = { checked: false };
   c.showResult = (...args) => c.lastResult = args;
@@ -138,4 +141,86 @@ test('falha de conexão não apresenta nome como se houvesse resultado confirmad
   assert.equal(c.lastResult[0], 'invalid');
   assert.equal(c.lastResult[2], 'Tente novamente');
   assert.equal(c.lastResult[4], undefined);
+});
+
+test('modo offline envia 10 pendências automaticamente sem baixar lista nem mudar modo', async () => {
+  let calls = 0;
+  const c = client({ validateCheckin: async data => { calls++; assert.ok(data.requestId); return {status:'allowed'}; }, syncCheckinRoster: () => { throw Error('Não deve baixar lista'); } });
+  c.offlineModeToggle.checked = true;
+  c.writeOfflineQueue(Array.from({length:10}, (_,i) => ({token:`CHK-TEST${i}-ABC`,requestId:`request-123456789012345${i}`})));
+  await c.backgroundSyncTick();
+  assert.equal(calls,10);
+  assert.equal(c.readOfflineQueue().length,0);
+  assert.equal(c.offlineModeToggle.checked,true);
+  assert.ok(c.readStored(c.queueSyncKey));
+});
+
+test('nova entrada offline é liberada durante envio e preservada para o próximo lote', async () => {
+  let resolve;
+  const c = client({ validateCheckin: () => new Promise(r => resolve=r) });
+  c.offlineModeToggle.checked = true;
+  c.writeOfflineQueue([{token:'CHK-OUTRO-ABC',requestId:'request-1234567890123457'}]);
+  const background = c.backgroundSyncTick();
+  assert.equal(c.syncing,true);
+  await c.validateToken(token);
+  assert.equal(c.lastResult[0],'allowed');
+  assert.equal(c.syncing,true);
+  resolve({status:'allowed'});
+  await background;
+  assert.equal(c.readOfflineQueue().length,1);
+  assert.equal(c.readOfflineQueue()[0].token,token);
+});
+
+test('falha mantém pendências e aumenta intervalo; sucesso restaura intervalo curto', async () => {
+  let calls=0, fail=true;
+  const c=client({validateCheckin:async()=>{calls++; if(fail)throw Error('rede'); return {status:'allowed'};}});
+  c.writeOfflineQueue([{token,requestId:'request-1234567890123456'}]);
+  for(const expected of [15000,30000,60000,60000]) {
+    c.nextQueueSyncAt=0;
+    await c.backgroundSyncTick();
+    assert.equal(c.queueRetryMs,expected);
+    assert.equal(c.readOfflineQueue().length,1);
+    const before=calls;
+    await c.backgroundSyncTick();
+    assert.equal(calls,before);
+  }
+  fail=false; c.nextQueueSyncAt=0;
+  await c.backgroundSyncTick();
+  assert.equal(c.queueRetryMs,5000);
+  assert.equal(c.readOfflineQueue().length,0);
+});
+
+test('não inicia envio paralelo, sem rede, com tela oculta ou fila só de conflitos', async () => {
+  let calls=0;
+  const c=client({validateCheckin:async()=>{calls++;return {status:'allowed'};}});
+  c.writeOfflineQueue([{token,requestId:'request-1234567890123456'}]);
+  c.syncing=true; await c.backgroundSyncTick();
+  c.syncing=false; c.testEnvironment.navigator.onLine=false; await c.backgroundSyncTick();
+  c.testEnvironment.navigator.onLine=true; c.testEnvironment.document.hidden=true; await c.backgroundSyncTick();
+  c.testEnvironment.document.hidden=false;
+  c.writeOfflineQueue([{token,conflict:true}]); await c.backgroundSyncTick();
+  assert.equal(calls,0);
+});
+
+test('servidor ocupado não descarta entrada e conflito permanece visível', async () => {
+  let status='busy';
+  const c=client({validateCheckin:async()=>({status})});
+  c.writeOfflineQueue([{token,requestId:'request-1234567890123456'}]);
+  await c.backgroundSyncTick();
+  assert.equal(c.readOfflineQueue().length,1);
+  assert.equal(c.queueRetryMs,15000);
+  status='used'; c.nextQueueSyncAt=0; await c.backgroundSyncTick();
+  assert.equal(c.readOfflineQueue()[0].conflict,true);
+});
+
+test('temporizador de 5 segundos é instalado para sincronização em segundo plano', async () => {
+  const c=client(); const intervals=[];
+  c.testEnvironment.window.setInterval=(fn,ms)=>intervals.push({fn,ms});
+  c.testEnvironment.window.addEventListener=()=>{};
+  for(const name of ['loginForm','logoutButton','startButton','stopButton','manualForm','manualCancelButton','manualConfirmButton','manualConfirmDialog','syncButton']) c[name]={addEventListener(){}};
+  c.offlineModeToggle.addEventListener=()=>{};
+  c.bindEvents();
+  let ticks=0; c.backgroundSyncTick=()=>ticks++;
+  intervals.find(i=>i.ms===5000).fn();
+  assert.equal(ticks,1);
 });

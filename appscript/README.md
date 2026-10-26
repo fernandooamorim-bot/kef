@@ -99,3 +99,9 @@ A ação autenticada `admin_create_gift` registra nome, descrição, tipo e data
 - O service worker usa uma versão completa em cache, evitando esperar por rede instável ao abrir a tela. Incrementar `CHECKIN_CACHE` ao publicar alterações em arquivos precacheados e reabrir a página para usar o novo JavaScript.
 
 Verificação local: `node --test tests/*.test.cjs` na raiz do site. Os testes usam dados fictícios e não registram convidados reais.
+
+### Sincronização em segundo plano — 26/10/2026
+
+Com a página visível e conexão detectada, as pendências são verificadas a cada 5 segundos, inclusive com o modo offline marcado. O envio usa a mesma fila persistente e os mesmos identificadores de operação. Não baixa a lista completa a cada tentativa nem muda o modo de validação. Falhas e servidor ocupado aumentam o intervalo para 15, 30 e até 60 segundos; após sucesso, volta a 5 segundos. Não inicia outra sincronização enquanto uma estiver em andamento. Entradas novas podem continuar sendo salvas durante o envio e ficam para o lote seguinte.
+
+O painel mostra pendências, conflitos e o horário do último envio confirmado. O navegador pode suspender tarefas com a tela apagada ou o aplicativo em segundo plano: mantenha a tela aberta durante a portaria e confira o término da sincronização. Retorno à página, retorno de conexão e o botão Atualizar lista continuam disponíveis. A validade de duas horas da lista para uso offline não mudou: a atualização da lista e o envio das entradas são operações diferentes.

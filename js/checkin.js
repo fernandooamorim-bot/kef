@@ -16,6 +16,9 @@ window.WeddingCheckin = {
   operationKey: "kf_checkin_operations_v1",
   admissionKey: "kf_checkin_admissions_v1",
   syncRetryMs: 15000,
+  queueRetryMs: 5000,
+  nextQueueSyncAt: 0,
+  queueSyncKey: "kf_checkin_last_queue_sync_v1",
   rosterTtlMs: 2 * 60 * 60 * 1000,
 
   init() {
@@ -78,6 +81,7 @@ window.WeddingCheckin = {
     window.setInterval(() => {
       if (this.credentials && !document.hidden && navigator.onLine && !this.validating && !this.offlineModeToggle?.checked) this.syncRoster({ silent: true });
     }, 60000);
+    window.setInterval(() => this.backgroundSyncTick(), 5000);
     this.syncButton?.addEventListener("click", () => this.syncRoster());
     this.offlineModeToggle?.addEventListener("change", () => {
       if (this.offlineModeToggle.checked && this.isRosterStale()) {
@@ -420,6 +424,42 @@ window.WeddingCheckin = {
     }
   },
 
+  backgroundSyncTick() {
+    if (!this.credentials || this.syncing || this.validating || document.hidden || !navigator.onLine || Date.now() < this.nextQueueSyncAt) return;
+    if (this.readOfflineQueue().some(item => !item.conflict)) return this.syncQueueInBackground();
+  },
+
+  async syncQueueInBackground() {
+    if (!this.credentials || this.syncing) return;
+    const session = this.credentials;
+    this.syncing = true;
+    if (this.syncButton) this.syncButton.disabled = true;
+    this.renderSyncState("Enviando entradas pendentes em segundo plano…");
+    try {
+      const result = await this.flushOfflineQueue();
+      if (this.credentials !== session) return;
+      this.queueRetryMs = result.stalled ? Math.min(Math.max(this.queueRetryMs * 2, 15000), 60000) : 5000;
+      this.renderSyncState(result.stalled
+        ? "Conexão instável. Entradas preservadas; nova tentativa automática."
+        : result.conflicts ? "Sincronização concluída com entradas para conferência."
+        : result.pending ? "Envio concluído. Novas entradas aguardam a próxima sincronização."
+        : "Todas as entradas pendentes foram sincronizadas.");
+    } catch (error) {
+      if (this.credentials !== session) return;
+      if (this.isInvalidSessionError(error)) {
+        this.logout();
+        this.loginStatus.textContent = "Faça login novamente para sincronizar as entradas salvas neste aparelho.";
+        return;
+      }
+      this.queueRetryMs = Math.min(Math.max(this.queueRetryMs * 2, 15000), 60000);
+      this.renderSyncState("Não foi possível sincronizar. Entradas preservadas; nova tentativa automática.");
+    } finally {
+      this.nextQueueSyncAt = Date.now() + this.queueRetryMs;
+      this.syncing = false;
+      if (this.syncButton) this.syncButton.disabled = false;
+    }
+  },
+
   async flushOfflineQueue() {
     let queue = this.readOfflineQueue();
     if (queue.some(item => !item.requestId && !item.conflict)) {
@@ -427,19 +467,23 @@ window.WeddingCheckin = {
       if (!this.writeOfflineQueue(queue)) throw new Error("Não foi possível preparar as entradas pendentes.");
     }
     const processed = new Map();
+    const session = this.credentials;
+    let stalled = false;
     let synced = 0;
     for (const item of queue) {
+      if (this.credentials !== session) { stalled = true; break; }
       if (item.conflict) continue;
       try {
         const result = await window.WeddingApi.validateCheckin({
-          ...this.credentials, token: item.token, requestId: item.requestId,
+          ...session, token: item.token, requestId: item.requestId,
           offline: true, checkedInAt: item.checkedInAt
         });
         if (result.status === "allowed") { processed.set(item.token, null); synced++; }
         else if (result.status === "used" || result.status === "invalid") processed.set(item.token, { ...item, conflict: true });
-        else break;
+        else { stalled = true; break; }
       } catch (error) {
         if (this.isInvalidSessionError(error)) throw error;
+        stalled = true;
         break;
       }
     }
@@ -451,7 +495,8 @@ window.WeddingCheckin = {
         return updated ? [updated] : [];
       });
       if (!this.writeOfflineQueue(remaining)) throw new Error("Não foi possível atualizar as validações pendentes neste aparelho.");
-      return { synced, pending: remaining.filter(item => !item.conflict).length, conflicts: remaining.filter(item => item.conflict).length };
+      if (synced) this.writeStored(this.queueSyncKey, new Date().toISOString());
+      return { synced, stalled, pending: remaining.filter(item => !item.conflict).length, conflicts: remaining.filter(item => item.conflict).length };
     };
     if (typeof navigator !== "undefined" && navigator.locks?.request) return navigator.locks.request("kf-checkin-entry", save);
     return save();
@@ -600,8 +645,11 @@ window.WeddingCheckin = {
     const conflictCount = queue.length - pendingCount;
     const pending = pendingCount ? ` ${pendingCount} validação(ões) pendente(s).` : "";
     const conflicts = conflictCount ? ` ${conflictCount} entrada(s) exigem conferência manual.` : "";
+    const lastSent = this.readStored(this.queueSyncKey, null);
+    const sentLabel = lastSent ? ` Último envio confirmado: ${this.formatDate(lastSent)}.` : "";
+    const offline = this.offlineModeToggle?.checked ? " Validação offline ativa — use somente este aparelho." : "";
     const stale = this.isRosterStale() ? " A lista precisa ser atualizada antes de uso offline." : "";
-    this.setSyncState(message || (this.offlineModeToggle?.checked ? "Modo offline ativo — use um único aparelho." : "Lista pronta neste aparelho."), `${roster.guests.length} confirmações sincronizadas em ${label}.${pending}${conflicts}${stale}`);
+    this.setSyncState(message || (this.offlineModeToggle?.checked ? "Modo offline ativo — use um único aparelho." : "Lista pronta neste aparelho."), `${roster.guests.length} confirmações sincronizadas em ${label}.${pending}${conflicts}${stale}${sentLabel}${offline}`);
   },
 
   setSyncState(status, details = "") {
