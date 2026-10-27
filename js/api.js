@@ -312,10 +312,24 @@ window.WeddingApi = {
   },
 
   async getAdminSummary(credentials) {
-    return this.checkinRequest("admin_summary", {
-      ...credentials,
-      userAgent: navigator.userAgent
-    });
+    // Only repeat this read; never automatically repeat administrative writes.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const result = await this.checkinRequest("admin_summary", {
+          ...credentials,
+          userAgent: navigator.userAgent
+        }, { timeoutMs: 25000 });
+        if (!Array.isArray(result?.guests)) {
+          const error = new Error("A consulta retornou uma lista incompleta. Tente atualizar novamente.");
+          error.kind = "invalid_response";
+          throw error;
+        }
+        return result;
+      } catch (error) {
+        if (attempt === 1 || !["network", "timeout", "server", "invalid_response"].includes(error.kind)) throw error;
+        await this.delay(800);
+      }
+    }
   },
 
   async createAdminGift(data) {

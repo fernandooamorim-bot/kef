@@ -655,3 +655,45 @@ test("gravação de check-in reutiliza cabeçalhos e escreve ID antes da entrada
   assert.equal(writes[0].c, 4);
   assert.equal(writes[1].c, 1);
 });
+
+test("consulta administrativa recupera resposta incompleta e falhas temporárias com uma repetição", async () => {
+  for (const failure of [null, {}, { guests: {} }, ...["network", "timeout", "server", "invalid_response"].map(kind => Object.assign(new Error(kind), { kind }))]) {
+    const window = {};
+    const context = vm.createContext({ window, navigator: { userAgent: "test" } });
+    vm.runInContext(fs.readFileSync(path.join(root, "js/api.js"), "utf8"), context);
+    const api = window.WeddingApi;
+    let calls = 0;
+    api.delay = async () => {};
+    const expected = { guests: [{ guestId: "KF001" }], totals: { total: 1 } };
+    api.checkinRequest = async (action) => {
+      assert.equal(action, "admin_summary");
+      if (++calls === 1) {
+        if (failure instanceof Error) throw failure;
+        return failure;
+      }
+      return expected;
+    };
+    assert.equal(await api.getAdminSummary({}), expected);
+    assert.equal(calls, 2);
+  }
+});
+
+test("consulta administrativa limita tentativas e não repete sessão inválida nem lista vazia válida", async () => {
+  const window = {};
+  const context = vm.createContext({ window, navigator: { userAgent: "test" } });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/api.js"), "utf8"), context);
+  const api = window.WeddingApi;
+  let calls = 0;
+  api.delay = async () => {};
+  api.checkinRequest = async () => { calls++; return {}; };
+  await assert.rejects(api.getAdminSummary({}), /lista incompleta/);
+  assert.equal(calls, 2);
+  calls = 0;
+  api.checkinRequest = async () => { calls++; throw Object.assign(new Error("Sessão inválida"), { kind: "business" }); };
+  await assert.rejects(api.getAdminSummary({}), /Sessão inválida/);
+  assert.equal(calls, 1);
+  calls = 0;
+  api.checkinRequest = async () => { calls++; return { guests: [] }; };
+  assert.equal((await api.getAdminSummary({})).guests.length, 0);
+  assert.equal(calls, 1);
+});
