@@ -157,6 +157,7 @@ window.WeddingInvite = {
     }
 
     ctx.fillStyle = "#756e62";
+    ctx.textAlign = "center";
     this.drawText(ctx, "Apresente este QR Code na recepção do evento.", width / 2, 1450, 30, "Arial");
 
     return new Promise((resolve, reject) => {
