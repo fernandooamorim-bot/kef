@@ -114,17 +114,6 @@ window.WeddingAdmin = {
     this.giftSearch.addEventListener("input", () => this.renderGifts());
     this.giftSort.addEventListener("change", () => this.renderGifts());
     this.giftStatusFilter.addEventListener("change", () => this.renderGifts());
-    this.reminderDialog = document.getElementById("adminReminderDialog");
-    this.reminderForm = document.getElementById("adminReminderForm");
-    this.reminderMessage = document.getElementById("adminReminderMessage");
-    this.reminderPhone = document.getElementById("adminReminderPhone");
-    this.reminderStatus = document.getElementById("adminReminderStatus");
-    this.reminderForm.addEventListener("submit", (event) => this.openReminderWhatsapp(event));
-    document.getElementById("adminReminderCancel").addEventListener("click", () => this.reminderDialog.close());
-    this.reminderDialog.addEventListener("close", () => {
-      this.reminderForm.reset();
-      this.reminderStatus.textContent = "";
-    });
     this.bindEvents();
     this.restoreSession();
   },
@@ -199,7 +188,6 @@ window.WeddingAdmin = {
   },
 
   logout() {
-    if (this.reminderDialog?.open) this.reminderDialog.close();
     if (this.manualGiftForm) {
       this.manualGiftForm.reset();
       this.manualGiftPayload = null;
@@ -640,23 +628,10 @@ Krisna & Fernando`;
   openReminder(guestId) {
     const guest = this.guests.find((item) => item.guestId === guestId);
     if (!guest || guest.status !== "confirmed" || !guest.inviteLink) return;
-    this.reminderMessage.value = this.buildReminderMessage(guest);
     const phone = this.normalizeReminderPhone(guest.phone);
-    this.reminderPhone.value = phone ? `+${phone}` : "";
-    this.reminderStatus.textContent = "";
-    this.reminderDialog.showModal();
-  },
-
-  openReminderWhatsapp(event) {
-    event.preventDefault();
-    const phone = this.normalizeReminderPhone(this.reminderPhone.value);
-    const message = this.reminderMessage.value.trim();
-    if (!phone || !message) {
-      this.reminderStatus.textContent = "Informe um telefone válido com DDD (e código do país para números internacionais) e a mensagem.";
-      return;
-    }
+    const message = this.buildReminderMessage(guest);
+    // Without a usable phone, WhatsApp lets the operator choose the recipient.
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
-    this.reminderStatus.textContent = "Conclua o envio no WhatsApp. Se ele não abriu, permita pop-ups neste navegador e tente novamente.";
   },
 
   renderList() {
