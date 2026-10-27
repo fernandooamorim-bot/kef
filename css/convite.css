@@ -252,10 +252,11 @@
   color: var(--color-muted);
 }
 
-.invite-gifts a {
-  display: inline-block;
-  padding: 0.6rem;
-  color: var(--color-olive);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+.invite-gifts .invite-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  margin-top: 0.25rem;
+  text-decoration: none;
 }
