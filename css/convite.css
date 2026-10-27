@@ -240,23 +240,12 @@
 }
 
 .invite-gifts {
-  border-top: 1px solid rgba(78, 90, 66, 0.16);
-  padding-top: 1rem;
-  text-align: center;
-  font-size: 0.9rem;
-  line-height: 1.6;
-}
-
-.invite-gifts p {
-  margin: 0 0 0.5rem;
-  color: var(--color-muted);
-}
-
-.invite-gifts .invite-button {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 300px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  max-width: 100%;
-  margin-top: 0.25rem;
+  text-align: center;
   text-decoration: none;
 }
