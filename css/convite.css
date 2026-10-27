@@ -238,3 +238,24 @@
     grid-template-columns: 1fr;
   }
 }
+
+.invite-gifts {
+  border-top: 1px solid rgba(78, 90, 66, 0.16);
+  padding-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.invite-gifts p {
+  margin: 0 0 0.5rem;
+  color: var(--color-muted);
+}
+
+.invite-gifts a {
+  display: inline-block;
+  padding: 0.6rem;
+  color: var(--color-olive);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

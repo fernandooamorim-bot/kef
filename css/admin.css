@@ -573,7 +573,8 @@
 }
 
 .admin-response-dialog__companion select,
-.admin-response-dialog__companion input {
+.admin-response-dialog__companion input,
+.admin-response-dialog__companion textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid rgba(78, 90, 66, 0.25);
@@ -716,3 +717,8 @@
 .admin-gift__status--physical { background: #e5efe7; color: #285d3a; }
 #adminManualGiftPanel h3 { margin: 0; }
 #adminManualGiftProgress { grid-column: 1 / -1; }
+
+.admin-response-dialog__companion textarea {
+  resize: vertical;
+  line-height: 1.5;
+}

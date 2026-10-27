@@ -114,6 +114,17 @@ window.WeddingAdmin = {
     this.giftSearch.addEventListener("input", () => this.renderGifts());
     this.giftSort.addEventListener("change", () => this.renderGifts());
     this.giftStatusFilter.addEventListener("change", () => this.renderGifts());
+    this.reminderDialog = document.getElementById("adminReminderDialog");
+    this.reminderForm = document.getElementById("adminReminderForm");
+    this.reminderMessage = document.getElementById("adminReminderMessage");
+    this.reminderPhone = document.getElementById("adminReminderPhone");
+    this.reminderStatus = document.getElementById("adminReminderStatus");
+    this.reminderForm.addEventListener("submit", (event) => this.openReminderWhatsapp(event));
+    document.getElementById("adminReminderCancel").addEventListener("click", () => this.reminderDialog.close());
+    this.reminderDialog.addEventListener("close", () => {
+      this.reminderForm.reset();
+      this.reminderStatus.textContent = "";
+    });
     this.bindEvents();
     this.restoreSession();
   },
@@ -125,6 +136,8 @@ window.WeddingAdmin = {
     this.list.addEventListener("click", (event) => {
       const button = event.target.closest("[data-admin-response]");
       if (button) this.openResponse(button.dataset.guestId, button.dataset.adminResponse);
+      const reminder = event.target.closest("[data-admin-reminder]");
+      if (reminder) this.openReminder(reminder.dataset.adminReminder);
     });
     this.responseForm.addEventListener("submit", (event) => this.submitResponse(event));
     this.responseCancel.addEventListener("click", () => this.responseDialog.close());
@@ -186,6 +199,7 @@ window.WeddingAdmin = {
   },
 
   logout() {
+    if (this.reminderDialog?.open) this.reminderDialog.close();
     if (this.manualGiftForm) {
       this.manualGiftForm.reset();
       this.manualGiftPayload = null;
@@ -599,6 +613,52 @@ window.WeddingAdmin = {
     });
   },
 
+  buildReminderMessage(guest) {
+    return `Olá, ${guest.name || "convidado"}!
+
+A semana do nosso casamento chegou! Estamos muito felizes em compartilhar esse dia com você.
+
+Estamos reenviando o link do seu *convite digital* para facilitar o acesso no dia:
+${guest.inviteLink}
+
+*É o mesmo convite disponibilizado na confirmação da sua presença.* Se você já salvou, está tudo certo! Se ainda não, abra o link e toque em *Salvar convite*.
+
+No dia, apresente o *QR Code na recepção*.
+
+Esperamos você para comemorar com a gente!
+Krisna & Fernando`;
+  },
+
+  normalizeReminderPhone(value) {
+    const raw = String(value || "").trim();
+    let digits = raw.replace(/\D/g, "");
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    else if (!raw.startsWith("+") && (digits.length === 10 || digits.length === 11)) digits = `55${digits}`;
+    return /^[1-9]\d{7,14}$/.test(digits) ? digits : "";
+  },
+
+  openReminder(guestId) {
+    const guest = this.guests.find((item) => item.guestId === guestId);
+    if (!guest || guest.status !== "confirmed" || !guest.inviteLink) return;
+    this.reminderMessage.value = this.buildReminderMessage(guest);
+    const phone = this.normalizeReminderPhone(guest.phone);
+    this.reminderPhone.value = phone ? `+${phone}` : "";
+    this.reminderStatus.textContent = "";
+    this.reminderDialog.showModal();
+  },
+
+  openReminderWhatsapp(event) {
+    event.preventDefault();
+    const phone = this.normalizeReminderPhone(this.reminderPhone.value);
+    const message = this.reminderMessage.value.trim();
+    if (!phone || !message) {
+      this.reminderStatus.textContent = "Informe um telefone válido com DDD (e código do país para números internacionais) e a mensagem.";
+      return;
+    }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    this.reminderStatus.textContent = "Conclua o envio no WhatsApp. Se ele não abriu, permita pop-ups neste navegador e tente novamente.";
+  },
+
   renderList() {
     const term = this.normalize(this.search.value);
     const guests = this.guests.filter((guest) => {
@@ -628,6 +688,9 @@ window.WeddingAdmin = {
           <div><dt>Check-in</dt><dd>${this.escape(guest.checkinStatus || "-")}</dd></div>
           <div><dt>Última resposta</dt><dd>${this.escape(this.formatDate(guest.lastResponseAt) || "-")}</dd></div>
         </dl>
+        ${guest.status === "confirmed" && guest.inviteLink ? `<div class="admin-guest__actions">
+          <button class="admin-button admin-button--small admin-button--ghost" type="button" data-admin-reminder="${this.escapeAttr(guest.guestId)}">Enviar lembrete do casamento</button>
+        </div>` : ""}
         <details class="admin-guest__details">
           <summary>Ver detalhes</summary>
           <dl>
