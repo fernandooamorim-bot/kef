@@ -604,7 +604,7 @@ window.WeddingAdmin = {
   buildReminderMessage(guest) {
     return `Olá, ${guest.name || "convidado"}!
 
-A semana do nosso casamento chegou! Estamos muito felizes em compartilhar esse dia com você.
+O casamento da Krisna e do Fernando é amanhã, 29 de outubro! Estamos muito felizes em compartilhar esse dia com você.
 
 Estamos reenviando o link do seu *convite digital* para facilitar o acesso no dia:
 ${guest.inviteLink}
